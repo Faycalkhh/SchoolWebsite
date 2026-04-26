@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, LogOut, ChevronDown, ChevronUp, CheckCircle2, XCircle } from "lucide-react";
+import { BookOpen, LogOut, ChevronDown, ChevronUp, CheckCircle2, XCircle, Bell } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Lang } from "@/context/LanguageContext";
-import { getStudents, getUsers, getTopStudents } from "@/lib/store";
-import type { Student, Session, Discipline, TopEntry } from "@/lib/types";
+import { getStudents, getUsers, getTopStudents, getAnnouncements } from "@/lib/store";
+import type { Student, Session, Discipline, TopEntry, Announcement } from "@/lib/types";
+import MemoMap from "@/components/MemoMap";
 
 const t = {
   ar: {
@@ -31,17 +32,13 @@ const t = {
     absent: "غائب",
     memo: "الحفظ:",
     topBadge: "من أفضل 3 طلاب الأسبوع",
+    announcementsTitle: "إعلانات المدرسة",
+    memoMapTitle: "خريطة الحفظ",
     disciplines: {
-      excellent: "ممتاز",
-      bon: "جيد",
-      passable: "مقبول",
-      insuffisant: "ضعيف",
+      excellent: "ممتاز", bon: "جيد", passable: "مقبول", insuffisant: "ضعيف",
     },
     levels: {
-      "Débutant": "مبتدئ",
-      "Intermédiaire": "متوسط",
-      "Avancé": "متقدم",
-      "Hifz": "حفظ",
+      "Débutant": "مبتدئ", "Intermédiaire": "متوسط", "Avancé": "متقدم", "Hifz": "حفظ",
     },
   },
   fr: {
@@ -64,17 +61,13 @@ const t = {
     absent: "Absent",
     memo: "Mémorisation :",
     topBadge: "Top 3 de la semaine",
+    announcementsTitle: "Annonces de l'école",
+    memoMapTitle: "Carte de mémorisation",
     disciplines: {
-      excellent: "Excellent",
-      bon: "Bon",
-      passable: "Passable",
-      insuffisant: "Insuffisant",
+      excellent: "Excellent", bon: "Bon", passable: "Passable", insuffisant: "Insuffisant",
     },
     levels: {
-      "Débutant": "Débutant",
-      "Intermédiaire": "Intermédiaire",
-      "Avancé": "Avancé",
-      "Hifz": "Hifz",
+      "Débutant": "Débutant", "Intermédiaire": "Intermédiaire", "Avancé": "Avancé", "Hifz": "Hifz",
     },
   },
 };
@@ -110,6 +103,7 @@ export default function ParentDashboard() {
   const [professorNames, setProfessorNames] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [topStudents, setTopStudents] = useState<TopEntry[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   useEffect(() => {
     if (!user) { router.push("/login"); return; }
@@ -123,6 +117,7 @@ export default function ParentDashboard() {
     users.forEach((u) => { map[u.id] = u.name; });
     setProfessorNames(map);
     setTopStudents(getTopStudents());
+    setAnnouncements(getAnnouncements());
   }, [user, router]);
 
   if (!user) return null;
@@ -165,6 +160,31 @@ export default function ParentDashboard() {
           <p className="text-sm text-[#888] mt-1">{T.subtitle(children.length)}</p>
         </div>
 
+        {/* ── ANNOUNCEMENTS ── */}
+        {announcements.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Bell size={15} className="text-[#c9a84c]" />
+              <h2 className="text-sm font-bold text-[#1a1a1a]">{T.announcementsTitle}</h2>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {announcements.map((ann) => (
+                <div key={ann.id} className="bg-white rounded-2xl border border-[#e8dfc8] overflow-hidden flex shadow-sm">
+                  {ann.image && (
+                    <img src={ann.image} className="w-20 h-20 object-cover shrink-0" alt="" />
+                  )}
+                  <div className="p-4 min-w-0">
+                    <div className="text-[10px] text-[#c9a84c] font-semibold mb-1">{ann.date}</div>
+                    <div className="font-semibold text-[#1a1a1a] text-sm truncate">{ann.title}</div>
+                    {ann.body && <p className="text-xs text-[#666] mt-1 line-clamp-2 leading-relaxed">{ann.body}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── CHILDREN ── */}
         {children.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-[#e8dfc8] shadow-sm">
             <BookOpen size={44} className="mx-auto mb-3 text-[#e8dfc8]" />
@@ -209,7 +229,6 @@ export default function ParentDashboard() {
                         </div>
                       </div>
                     </div>
-
                     <div className="flex items-center gap-3">
                       <div className="hidden sm:flex items-center gap-3 text-xs">
                         {rate !== null && (
@@ -230,28 +249,37 @@ export default function ParentDashboard() {
                   </button>
 
                   {isExpanded && (
-                    <div className="border-t border-[#f0ead8] p-5">
+                    <div className="border-t border-[#f0ead8] p-5 space-y-6">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="bg-[#f5f0e8] rounded-xl p-4 text-center">
+                          <div className="text-2xl font-bold text-[#2d6a4f]">{child.sessions.length}</div>
+                          <div className="text-xs text-[#888] mt-0.5">{T.statSessions}</div>
+                        </div>
+                        <div className="bg-[#f5f0e8] rounded-xl p-4 text-center">
+                          <div className="text-2xl font-bold text-[#2d6a4f]">{rate ?? "—"}%</div>
+                          <div className="text-xs text-[#888] mt-0.5">{T.statAttendance}</div>
+                        </div>
+                        <div className="bg-[#f5f0e8] rounded-xl p-4 text-center col-span-2 sm:col-span-1">
+                          <div className={`text-sm font-bold mt-1 ${lastDisc ? DISC_CLS[lastDisc].split(" ")[0] : "text-[#aaa]"}`}>
+                            {lastDisc ? T.disciplines[lastDisc] : "—"}
+                          </div>
+                          <div className="text-xs text-[#888] mt-0.5">{T.statLastDisc}</div>
+                        </div>
+                      </div>
+
+                      {/* Memorization map (read-only) */}
+                      {child.memorization && Object.keys(child.memorization).length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-[#1a1a1a] mb-3">{T.memoMapTitle}</h4>
+                          <MemoMap value={child.memorization} editable={false} lang={lang} />
+                        </div>
+                      )}
+
+                      {/* Session history */}
                       {child.sessions.length === 0 ? (
                         <p className="text-sm text-[#ccc] text-center py-6">{T.noSessions}</p>
                       ) : (
-                        <>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                            <div className="bg-[#f5f0e8] rounded-xl p-4 text-center">
-                              <div className="text-2xl font-bold text-[#2d6a4f]">{child.sessions.length}</div>
-                              <div className="text-xs text-[#888] mt-0.5">{T.statSessions}</div>
-                            </div>
-                            <div className="bg-[#f5f0e8] rounded-xl p-4 text-center">
-                              <div className="text-2xl font-bold text-[#2d6a4f]">{rate ?? "—"}%</div>
-                              <div className="text-xs text-[#888] mt-0.5">{T.statAttendance}</div>
-                            </div>
-                            <div className="bg-[#f5f0e8] rounded-xl p-4 text-center col-span-2 sm:col-span-1">
-                              <div className={`text-sm font-bold mt-1 ${lastDisc ? DISC_CLS[lastDisc].split(" ")[0] : "text-[#aaa]"}`}>
-                                {lastDisc ? T.disciplines[lastDisc] : "—"}
-                              </div>
-                              <div className="text-xs text-[#888] mt-0.5">{T.statLastDisc}</div>
-                            </div>
-                          </div>
-
+                        <div>
                           <h4 className="text-sm font-semibold text-[#1a1a1a] mb-3">{T.sessionDetail}</h4>
                           <div className="space-y-3">
                             {sorted.map((s) => (
@@ -281,7 +309,7 @@ export default function ParentDashboard() {
                               </div>
                             ))}
                           </div>
-                        </>
+                        </div>
                       )}
                     </div>
                   )}

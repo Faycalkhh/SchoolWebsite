@@ -1,4 +1,4 @@
-import type { User, Student, TopEntry } from './types';
+import type { User, Student, TopEntry, Announcement } from './types';
 
 const USERS_KEY = 'nur_users';
 const STUDENTS_KEY = 'nur_students';
@@ -115,4 +115,28 @@ export function getTopStudents(): TopEntry[] {
 export function saveTopStudents(top: TopEntry[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TOP_KEY, JSON.stringify(top));
+}
+
+const ANN_KEY = 'nur_announcements';
+
+const seedAnnouncements: Announcement[] = [
+  {
+    id: 'ann1',
+    title: 'زيارة الشيخ الفاضل أحمد الأزهري',
+    body: 'يسعدنا الإعلان عن زيارة الشيخ الفاضل أحمد الأزهري يوم الجمعة 2 مايو. ستُقام جلسة خاصة للتلاوة والحفظ مفتوحة لجميع الطلاب وأولياء الأمور.',
+    date: '2026-04-30',
+  },
+];
+
+export function getAnnouncements(): Announcement[] {
+  if (typeof window === 'undefined') return seedAnnouncements;
+  if (!localStorage.getItem(ANN_KEY)) {
+    localStorage.setItem(ANN_KEY, JSON.stringify(seedAnnouncements));
+  }
+  return JSON.parse(localStorage.getItem(ANN_KEY) || '[]');
+}
+
+export function saveAnnouncements(announcements: Announcement[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(ANN_KEY, JSON.stringify(announcements));
 }

@@ -1,3 +1,6 @@
+import type { SurahStatus } from './quran';
+export type { SurahStatus } from './quran';
+
 export type Role = 'professor' | 'parent';
 export type Discipline = 'excellent' | 'bon' | 'passable' | 'insuffisant';
 export type Level = 'Débutant' | 'Intermédiaire' | 'Avancé' | 'Hifz';
@@ -34,4 +37,13 @@ export interface Student {
   parentId: string;
   sessions: Session[];
   photo?: string;
+  memorization?: Record<number, SurahStatus>;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  image?: string;
+  date: string;
 }
