@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   BookOpen, LogOut, Plus, ChevronDown, ChevronUp,
   Users, GraduationCap, Search, X, CheckCircle,
-  Pencil, Trash2, ChevronLeft, ChevronRight, Trophy, Bell,
+  Pencil, Trash2, ChevronLeft, ChevronRight, Trophy, Bell, ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -14,8 +14,9 @@ import type { Lang } from "@/context/LanguageContext";
 import {
   getStudents, saveStudents, getUsers, saveUsers,
   getTopStudents, saveTopStudents, getAnnouncements, saveAnnouncements,
+  getExams, saveExams, getExamResults, saveExamResults,
 } from "@/lib/store";
-import type { Student, Session, User, Discipline, Level, TopEntry, Announcement } from "@/lib/types";
+import type { Student, Session, User, Discipline, Level, TopEntry, Announcement, Exam, ExamResult, QCMQuestion, QCMOption } from "@/lib/types";
 import type { SurahStatus } from "@/lib/quran";
 import MemoMap from "@/components/MemoMap";
 
@@ -105,6 +106,29 @@ const t = {
     annFieldImage: "صورة (اختياري)",
     annBodyPh: "وصف الحدث، التفاصيل...",
     noAnnouncements: "لا توجد إعلانات بعد.",
+    tabExams: "الاختبارات",
+    createExam: "إنشاء اختبار",
+    newExam: "اختبار جديد",
+    examFieldTitle: "عنوان الاختبار *",
+    addQuestion: "إضافة سؤال",
+    questionLabel: (n: number) => `السؤال ${n}`,
+    questionPh: "نص السؤال...",
+    optionLabel: (l: string) => `الخيار ${l}`,
+    optionPh: "نص الخيار...",
+    correctAnswer: "الإجابة الصحيحة",
+    removeQuestion: "حذف",
+    toastExam: "تم إنشاء الاختبار بنجاح.",
+    noExams: "لم يتم إنشاء أي اختبار بعد.",
+    questionsCount: (n: number) => `${n} سؤال`,
+    examResults: "نتائج الاختبار",
+    noResults: "لم يؤدِّ أحد هذا الاختبار بعد.",
+    resultStudent: "الطالب",
+    resultScore: "النتيجة",
+    resultDate: "التاريخ",
+    errNoQuestions: "يرجى إضافة سؤال واحد على الأقل.",
+    errQuestionEmpty: "يرجى ملء نص جميع الأسئلة.",
+    errOptionEmpty: "يرجى ملء جميع خيارات الأسئلة.",
+    createdBy: "الأستاذ:",
     disciplines: {
       excellent: "ممتاز", bon: "جيد", passable: "مقبول", insuffisant: "ضعيف",
     },
@@ -197,6 +221,29 @@ const t = {
     annFieldImage: "Image (facultatif)",
     annBodyPh: "Description de l'événement, détails...",
     noAnnouncements: "Aucune annonce pour le moment.",
+    tabExams: "Examens",
+    createExam: "Créer un examen",
+    newExam: "Nouvel examen",
+    examFieldTitle: "Titre de l'examen *",
+    addQuestion: "Ajouter une question",
+    questionLabel: (n: number) => `Question ${n}`,
+    questionPh: "Texte de la question...",
+    optionLabel: (l: string) => `Option ${l}`,
+    optionPh: "Texte de l'option...",
+    correctAnswer: "Bonne réponse",
+    removeQuestion: "Supprimer",
+    toastExam: "Examen créé avec succès.",
+    noExams: "Aucun examen créé pour le moment.",
+    questionsCount: (n: number) => `${n} question${n !== 1 ? "s" : ""}`,
+    examResults: "Résultats de l'examen",
+    noResults: "Aucun élève n'a passé cet examen.",
+    resultStudent: "Élève",
+    resultScore: "Score",
+    resultDate: "Date",
+    errNoQuestions: "Veuillez ajouter au moins une question.",
+    errQuestionEmpty: "Veuillez remplir le texte de toutes les questions.",
+    errOptionEmpty: "Veuillez remplir tous les choix de réponse.",
+    createdBy: "Professeur :",
     disciplines: {
       excellent: "Excellent", bon: "Bon", passable: "Passable", insuffisant: "Insuffisant",
     },
@@ -267,6 +314,26 @@ const emptyStudent = () => ({ name: "", age: "", level: "Débutant" as Level, pa
 const emptyProf = () => ({ name: "", email: "", password: "", specialty: "" });
 const emptyAnn = () => ({ title: "", body: "", image: "" });
 
+const OPTION_LABELS = ["A", "B", "C", "D"];
+
+function emptyQuestion(): QCMQuestion {
+  return {
+    id: `q_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    text: "",
+    options: OPTION_LABELS.map((l) => ({ id: l.toLowerCase(), text: "" })),
+    correctOptionId: "a",
+  };
+}
+function emptyExamDraft() {
+  return { title: "", questions: [emptyQuestion()] };
+}
+
+function scoreColor(score: number) {
+  if (score >= 70) return "text-emerald-700 bg-emerald-50 border-emerald-200";
+  if (score >= 50) return "text-amber-700 bg-amber-50 border-amber-200";
+  return "text-red-700 bg-red-50 border-red-200";
+}
+
 export default function ProfessorDashboard() {
   const { user, logout } = useAuth();
   const { lang, dir, setLang } = useLanguage();
@@ -279,7 +346,7 @@ export default function ProfessorDashboard() {
   const [topForm, setTopForm] = useState<{ r1: string; r2: string; r3: string }>({ r1: "", r2: "", r3: "" });
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const [tab, setTab] = useState<"students" | "professors" | "top3" | "announcements">("students");
+  const [tab, setTab] = useState<"students" | "professors" | "top3" | "announcements" | "exams">("students");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -304,12 +371,22 @@ export default function ProfessorDashboard() {
   const [deletingProfId, setDeletingProfId] = useState<string | null>(null);
   const [deletingAnnId, setDeletingAnnId] = useState<string | null>(null);
 
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [examResults, setExamResults] = useState<ExamResult[]>([]);
+  const [showCreateExam, setShowCreateExam] = useState(false);
+  const [examForm, setExamForm] = useState(emptyExamDraft());
+  const [examErr, setExamErr] = useState("");
+  const [expandedExamId, setExpandedExamId] = useState<string | null>(null);
+  const [deletingExamId, setDeletingExamId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!user) { router.push("/login"); return; }
     if (user.role !== "professor") { router.push("/login"); return; }
     setStudents(getStudents());
     setUsers(getUsers());
     setAnnouncements(getAnnouncements());
+    setExams(getExams());
+    setExamResults(getExamResults());
     const tops = getTopStudents();
     setTopStudents(tops);
     const form = { r1: "", r2: "", r3: "" };
@@ -415,6 +492,35 @@ export default function ProfessorDashboard() {
     flash(T.toastDeleted);
   }
 
+  function handleSaveExam() {
+    setExamErr("");
+    if (!examForm.title.trim()) { setExamErr(T.errRequired); return; }
+    if (examForm.questions.length === 0) { setExamErr(T.errNoQuestions); return; }
+    if (examForm.questions.some((q) => !q.text.trim())) { setExamErr(T.errQuestionEmpty); return; }
+    if (examForm.questions.some((q) => q.options.some((o) => !o.text.trim()))) { setExamErr(T.errOptionEmpty); return; }
+    const newExam: Exam = {
+      id: `exam_${Date.now()}`,
+      title: examForm.title,
+      professorId: user!.id,
+      date: new Date().toISOString().split("T")[0],
+      questions: examForm.questions,
+    };
+    const updated = [newExam, ...exams];
+    saveExams(updated); setExams(updated);
+    setExamForm(emptyExamDraft()); setShowCreateExam(false);
+    flash(T.toastExam);
+  }
+
+  function handleDeleteExam(id: string) {
+    const updatedExams = exams.filter((e) => e.id !== id);
+    const updatedResults = examResults.filter((r) => r.examId !== id);
+    saveExams(updatedExams); setExams(updatedExams);
+    saveExamResults(updatedResults); setExamResults(updatedResults);
+    setDeletingExamId(null);
+    if (expandedExamId === id) setExpandedExamId(null);
+    flash(T.toastDeleted);
+  }
+
   function handleSaveTop3() {
     const entries: TopEntry[] = [];
     if (topForm.r1) entries.push({ rank: 1, studentId: topForm.r1 });
@@ -437,6 +543,7 @@ export default function ProfessorDashboard() {
     { key: "professors" as const,    label: T.tabProfessors,    icon: <GraduationCap size={14} />, count: professors.length },
     { key: "top3" as const,          label: T.tabTop3,          icon: <Trophy size={14} />,        count: topStudents.length },
     { key: "announcements" as const, label: T.tabAnnouncements, icon: <Bell size={14} />,          count: announcements.length },
+    { key: "exams" as const,         label: T.tabExams,         icon: <ClipboardList size={14} />, count: exams.length },
   ];
 
   return (
@@ -873,6 +980,172 @@ export default function ProfessorDashboard() {
                     )}
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* ── EXAMS TAB ── */}
+        {tab === "exams" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-[#1a1a1a]">{T.tabExams}</h2>
+              <button onClick={() => { setShowCreateExam(!showCreateExam); setExamErr(""); setExamForm(emptyExamDraft()); }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors shadow-sm">
+                <Plus size={15} />{T.createExam}
+              </button>
+            </div>
+
+            {showCreateExam && (
+              <div className="bg-white rounded-2xl border border-[#e8dfc8] p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="font-bold text-[#1a1a1a]">{T.newExam}</h3>
+                  <button onClick={() => setShowCreateExam(false)} className="text-[#bbb] hover:text-[#555]"><X size={18} /></button>
+                </div>
+
+                <div className="mb-5">
+                  <label className={LABEL}>{T.examFieldTitle}</label>
+                  <input className={INPUT} value={examForm.title} onChange={(e) => setExamForm({ ...examForm, title: e.target.value })} />
+                </div>
+
+                <div className="space-y-5">
+                  {examForm.questions.map((q, qi) => (
+                    <div key={q.id} className="bg-[#faf8f4] rounded-xl border border-[#e8dfc8] p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-[#2d6a4f] uppercase tracking-wider">{T.questionLabel(qi + 1)}</span>
+                        {examForm.questions.length > 1 && (
+                          <button onClick={() => setExamForm({ ...examForm, questions: examForm.questions.filter((_, i) => i !== qi) })}
+                            className="text-xs text-red-400 hover:text-red-600 font-medium">{T.removeQuestion}</button>
+                        )}
+                      </div>
+                      <div className="mb-3">
+                        <textarea rows={2} className={`${INPUT} resize-none`} placeholder={T.questionPh} value={q.text}
+                          onChange={(e) => {
+                            const qs = examForm.questions.map((x, i) => i === qi ? { ...x, text: e.target.value } : x);
+                            setExamForm({ ...examForm, questions: qs });
+                          }} />
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-2 mb-3">
+                        {q.options.map((opt, oi) => (
+                          <div key={opt.id} className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-[#2d6a4f]/10 text-[#2d6a4f] text-[10px] font-bold flex items-center justify-center shrink-0">{OPTION_LABELS[oi]}</span>
+                            <input className={`${INPUT} text-xs`} placeholder={T.optionPh} value={opt.text}
+                              onChange={(e) => {
+                                const qs = examForm.questions.map((x, i) => i !== qi ? x : {
+                                  ...x, options: x.options.map((o, j) => j === oi ? { ...o, text: e.target.value } : o),
+                                });
+                                setExamForm({ ...examForm, questions: qs });
+                              }} />
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">{T.correctAnswer}</label>
+                        <div className="flex gap-2 mt-1.5 flex-wrap">
+                          {q.options.map((opt, oi) => (
+                            <button key={opt.id} type="button"
+                              onClick={() => {
+                                const qs = examForm.questions.map((x, i) => i === qi ? { ...x, correctOptionId: opt.id } : x);
+                                setExamForm({ ...examForm, questions: qs });
+                              }}
+                              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors border ${q.correctOptionId === opt.id ? "bg-emerald-600 text-white border-emerald-600" : "bg-white border-[#e8dfc8] text-[#666] hover:bg-[#f5f0e8]"}`}>
+                              {OPTION_LABELS[oi]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={() => setExamForm({ ...examForm, questions: [...examForm.questions, emptyQuestion()] })}
+                  className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[#2d6a4f] hover:underline">
+                  <Plus size={14} />{T.addQuestion}
+                </button>
+
+                {examErr && <p className="text-red-500 text-sm mt-3">{examErr}</p>}
+                <div className="flex gap-3 mt-5">
+                  <button onClick={handleSaveExam} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors">{T.save}</button>
+                  <button onClick={() => setShowCreateExam(false)} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
+                </div>
+              </div>
+            )}
+
+            {exams.length === 0 ? (
+              <div className="text-center py-20 text-[#ccc]"><ClipboardList size={44} className="mx-auto mb-3 opacity-40" /><p className="text-sm">{T.noExams}</p></div>
+            ) : (
+              <div className="space-y-3">
+                {exams.map((exam) => {
+                  const prof = users.find((u) => u.id === exam.professorId);
+                  const results = examResults.filter((r) => r.examId === exam.id);
+                  const isExpanded = expandedExamId === exam.id;
+                  return (
+                    <div key={exam.id} className="bg-white rounded-2xl border border-[#e8dfc8] overflow-hidden shadow-sm">
+                      {deletingExamId === exam.id ? (
+                        <div className="p-5 flex flex-wrap items-center justify-between gap-3 bg-red-50">
+                          <p className="text-sm font-medium text-red-700">{T.confirmDelete}</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleDeleteExam(exam.id)} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">{T.confirmYes}</button>
+                            <button onClick={() => setDeletingExamId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-white transition-colors">{T.cancel}</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div onClick={() => setExpandedExamId(isExpanded ? null : exam.id)} className="flex items-center justify-between p-4 sm:p-5 hover:bg-[#faf8f4] transition-colors cursor-pointer">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-[#1a1a1a] text-sm">{exam.title}</div>
+                              <div className="text-xs text-[#aaa] mt-0.5">
+                                {T.questionsCount(exam.questions.length)} · {exam.date}
+                                {prof && <span> · {T.createdBy} {prof.name}</span>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-xs bg-[#f0ead8] text-[#888] px-2 py-0.5 rounded-full">{results.length} {lang === "ar" ? "نتيجة" : "résultat" + (results.length !== 1 ? "s" : "")}</span>
+                              <button onClick={(e) => { e.stopPropagation(); setDeletingExamId(exam.id); }} className="p-1.5 rounded-lg text-[#bbb] hover:text-red-500 hover:bg-red-50 transition-colors" title={T.deleteLabel}><Trash2 size={13} /></button>
+                              {isExpanded ? <ChevronUp size={16} className="text-[#bbb]" /> : <ChevronDown size={16} className="text-[#bbb]" />}
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="border-t border-[#f0ead8] p-4 sm:p-5">
+                              <h4 className="text-sm font-semibold text-[#1a1a1a] mb-3">{T.examResults}</h4>
+                              {results.length === 0 ? (
+                                <p className="text-xs text-[#ccc]">{T.noResults}</p>
+                              ) : (
+                                <div className="overflow-x-auto rounded-xl border border-[#f0ead8]">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-[#faf8f4]">
+                                      <tr className="text-[#aaa] uppercase tracking-wider">
+                                        <th className="text-start px-4 py-2.5 font-medium">{T.resultStudent}</th>
+                                        <th className="text-start px-4 py-2.5 font-medium">{T.resultScore}</th>
+                                        <th className="text-start px-4 py-2.5 font-medium">{T.resultDate}</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#f5f0e8]">
+                                      {results.map((r) => {
+                                        const stu = students.find((s) => s.id === r.studentId);
+                                        return (
+                                          <tr key={r.id} className="hover:bg-[#faf8f4]">
+                                            <td className="px-4 py-3 text-[#555] font-medium">{stu?.name ?? r.studentId}</td>
+                                            <td className="px-4 py-3">
+                                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${scoreColor(r.score)}`}>
+                                                {r.correctCount}/{r.totalCount} — {r.score}%
+                                              </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-[#888]">{r.dateTaken}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

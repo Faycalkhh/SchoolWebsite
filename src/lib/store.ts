@@ -1,4 +1,4 @@
-import type { User, Student, TopEntry, Announcement } from './types';
+import type { User, Student, TopEntry, Announcement, Exam, ExamResult } from './types';
 
 const USERS_KEY = 'nur_users';
 const STUDENTS_KEY = 'nur_students';
@@ -139,4 +139,27 @@ export function getAnnouncements(): Announcement[] {
 export function saveAnnouncements(announcements: Announcement[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(ANN_KEY, JSON.stringify(announcements));
+}
+
+const EXAMS_KEY = 'nur_exams';
+const RESULTS_KEY = 'nur_exam_results';
+
+export function getExams(): Exam[] {
+  if (typeof window === 'undefined') return [];
+  return JSON.parse(localStorage.getItem(EXAMS_KEY) || '[]');
+}
+
+export function saveExams(exams: Exam[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(EXAMS_KEY, JSON.stringify(exams));
+}
+
+export function getExamResults(): ExamResult[] {
+  if (typeof window === 'undefined') return [];
+  return JSON.parse(localStorage.getItem(RESULTS_KEY) || '[]');
+}
+
+export function saveExamResults(results: ExamResult[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(RESULTS_KEY, JSON.stringify(results));
 }

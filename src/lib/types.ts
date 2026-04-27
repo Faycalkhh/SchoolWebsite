@@ -47,3 +47,34 @@ export interface Announcement {
   image?: string;
   date: string;
 }
+
+export interface QCMOption {
+  id: string;
+  text: string;
+}
+
+export interface QCMQuestion {
+  id: string;
+  text: string;
+  options: QCMOption[];
+  correctOptionId: string;
+}
+
+export interface Exam {
+  id: string;
+  title: string;
+  professorId: string;
+  date: string;
+  questions: QCMQuestion[];
+}
+
+export interface ExamResult {
+  id: string;
+  examId: string;
+  studentId: string;
+  answers: Record<string, string>;
+  score: number;
+  correctCount: number;
+  totalCount: number;
+  dateTaken: string;
+}
