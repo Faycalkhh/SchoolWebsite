@@ -7,7 +7,7 @@ import { BookOpen, LogOut, ChevronDown, ChevronUp, CheckCircle2, XCircle, Bell, 
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Lang } from "@/context/LanguageContext";
-import { getStudents, getUsers, getTopStudents, getAnnouncements, getExams, getExamResults, saveExamResults } from "@/lib/store";
+import { getStudentsByParent, getProfiles, getTopStudents, getAnnouncements, getExams, getExamResults, addExamResult } from "@/lib/store";
 import type { Student, Session, Discipline, TopEntry, Announcement, Exam, ExamResult } from "@/lib/types";
 import MemoMap from "@/components/MemoMap";
 
@@ -131,29 +131,35 @@ export default function ParentDashboard() {
   useEffect(() => {
     if (!user) { router.push("/login"); return; }
     if (user.role !== "parent") { router.push("/login"); return; }
-    const all = getStudents();
-    const mine = all.filter((s) => s.parentId === user.id);
-    setChildren(mine);
-    if (mine.length > 0) setExpandedId(mine[0].id);
-    const users = getUsers();
-    const map: Record<string, string> = {};
-    users.forEach((u) => { map[u.id] = u.name; });
-    setProfessorNames(map);
-    setTopStudents(getTopStudents());
-    setAnnouncements(getAnnouncements());
-    setExams(getExams());
-    setExamResults(getExamResults());
+    (async () => {
+      const [mine, profs, tops, anns, exs, results] = await Promise.all([
+        getStudentsByParent(user.id),
+        getProfiles(),
+        getTopStudents(),
+        getAnnouncements(),
+        getExams(),
+        getExamResults(),
+      ]);
+      setChildren(mine);
+      if (mine.length > 0) setExpandedId(mine[0].id);
+      const map: Record<string, string> = {};
+      profs.forEach((p) => { map[p.id] = p.name; });
+      setProfessorNames(map);
+      setTopStudents(tops);
+      setAnnouncements(anns);
+      setExams(exs);
+      setExamResults(results);
+    })();
   }, [user, router]);
 
-  function handleSubmitExam() {
+  async function handleSubmitExam() {
     if (!takingExam) return;
     const exam = exams.find((e) => e.id === takingExam.examId);
     if (!exam) return;
     if (exam.questions.some((q) => !examAnswers[q.id])) { setExamSubmitErr(T.errAllAnswers); return; }
     const correct = exam.questions.filter((q) => examAnswers[q.id] === q.correctOptionId).length;
     const score = Math.round((correct / exam.questions.length) * 100);
-    const result: ExamResult = {
-      id: `res_${Date.now()}`,
+    const result: Omit<ExamResult, "id"> = {
       examId: exam.id,
       studentId: takingExam.studentId,
       answers: { ...examAnswers },
@@ -162,9 +168,8 @@ export default function ParentDashboard() {
       totalCount: exam.questions.length,
       dateTaken: new Date().toISOString().split("T")[0],
     };
-    const updated = [...examResults, result];
-    saveExamResults(updated);
-    setExamResults(updated);
+    await addExamResult(result);
+    setExamResults((prev) => [...prev, { ...result, id: `res_${Date.now()}` }]);
     setTakingExam(null);
     setExamAnswers({});
     setExamSubmitErr("");

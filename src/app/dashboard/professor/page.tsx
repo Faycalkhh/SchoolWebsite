@@ -12,9 +12,14 @@ import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Lang } from "@/context/LanguageContext";
 import {
-  getStudents, saveStudents, getUsers, saveUsers,
-  getTopStudents, saveTopStudents, getAnnouncements, saveAnnouncements,
-  getExams, saveExams, getExamResults, saveExamResults,
+  getStudents, addStudent, updateStudent, deleteStudent,
+  getProfiles, createUser, deleteProfile,
+  addSession,
+  getTopStudents, saveTopStudents,
+  getAnnouncements, addAnnouncement, deleteAnnouncement,
+  getExams, addExam, deleteExam,
+  getExamResults, addExamResult, deleteExamResults,
+  saveMemoMap,
 } from "@/lib/store";
 import type { Student, Session, User, Discipline, Level, TopEntry, Announcement, Exam, ExamResult, QCMQuestion } from "@/lib/types";
 import type { SurahStatus } from "@/lib/quran";
@@ -341,10 +346,11 @@ export default function ProfessorDashboard() {
   const router = useRouter();
 
   const [students, setStudents] = useState<Student[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [profiles, setProfiles] = useState<User[]>([]);
   const [topStudents, setTopStudents] = useState<TopEntry[]>([]);
   const [topForm, setTopForm] = useState<{ r1: string; r2: string; r3: string }>({ r1: "", r2: "", r3: "" });
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   const [tab, setTab] = useState<"students" | "professors" | "top3" | "announcements" | "exams">("students");
   const [search, setSearch] = useState("");
@@ -382,25 +388,33 @@ export default function ProfessorDashboard() {
   useEffect(() => {
     if (!user) { router.push("/login"); return; }
     if (user.role !== "professor") { router.push("/login"); return; }
-    setStudents(getStudents());
-    setUsers(getUsers());
-    setAnnouncements(getAnnouncements());
-    setExams(getExams());
-    setExamResults(getExamResults());
-    const tops = getTopStudents();
-    setTopStudents(tops);
-    const form = { r1: "", r2: "", r3: "" };
-    tops.forEach((e) => {
-      if (e.rank === 1) form.r1 = e.studentId;
-      else if (e.rank === 2) form.r2 = e.studentId;
-      else if (e.rank === 3) form.r3 = e.studentId;
-    });
-    setTopForm(form);
+    (async () => {
+      const [studs, profs, anns, exs, results, tops] = await Promise.all([
+        getStudents(), getProfiles(), getAnnouncements(),
+        getExams(), getExamResults(), getTopStudents(),
+      ]);
+      setStudents(studs);
+      setProfiles(profs);
+      setAnnouncements(anns);
+      setExams(exs);
+      setExamResults(results);
+      setTopStudents(tops);
+      const form = { r1: "", r2: "", r3: "" };
+      tops.forEach((e) => {
+        if (e.rank === 1) form.r1 = e.studentId;
+        else if (e.rank === 2) form.r2 = e.studentId;
+        else if (e.rank === 3) form.r3 = e.studentId;
+      });
+      setTopForm(form);
+    })();
   }, [user, router]);
 
   useEffect(() => { setPage(0); }, [search]);
 
-  function refresh() { setStudents(getStudents()); setUsers(getUsers()); }
+  async function refresh() {
+    const [studs, profs] = await Promise.all([getStudents(), getProfiles()]);
+    setStudents(studs); setProfiles(profs);
+  }
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(""), 3500); }
 
   function expandStudent(id: string) {
@@ -411,130 +425,164 @@ export default function ProfessorDashboard() {
     if (editingStudentId) setEditingStudentId(null);
   }
 
-  function handleAddSession(studentId: string) {
-    const updated = students.map((s) => {
-      if (s.id !== studentId) return s;
-      return { ...s, sessions: [...s.sessions, { id: `ss_${Date.now()}`, ...sessionForm, professorId: user!.id }] };
-    });
-    saveStudents(updated); setStudents(updated);
+  async function handleAddSession(studentId: string) {
+    setSubmitting(true);
+    const newSession = await addSession(studentId, user!.id, sessionForm);
+    setStudents((prev) => prev.map((s) =>
+      s.id !== studentId ? s : { ...s, sessions: [newSession, ...s.sessions] }
+    ));
     setShowNewSession(null); setSessionForm(emptySession());
     flash(T.toastSession);
+    setSubmitting(false);
   }
 
-  function handleAddStudent() {
+  async function handleAddStudent() {
     setStudentErr("");
     const { name, parentEmail, parentName } = studentForm;
     if (!name.trim() || !parentEmail.trim() || !parentName.trim()) { setStudentErr(T.errRequired); return; }
-    const allUsers = getUsers();
-    let parent = allUsers.find((u) => u.email === parentEmail);
-    if (!parent) {
-      parent = { id: `u_${Date.now()}`, name: parentName, email: parentEmail, password: "parent123", role: "parent" };
-      saveUsers([...allUsers, parent]);
+    setSubmitting(true);
+    try {
+      let parent = profiles.find((u) => u.email === parentEmail && u.role === "parent");
+      if (!parent) {
+        parent = await createUser(parentEmail, "parent123", parentName, "parent");
+        setProfiles((prev) => [...prev, parent!]);
+      }
+      const newStudent = await addStudent(name, Number(studentForm.age) || 0, studentForm.level, parent.id, studentForm.photo || undefined);
+      setStudents((prev) => [...prev, newStudent]);
+      setStudentForm(emptyStudent()); setShowAddStudent(false);
+      flash(T.toastStudent);
+    } catch {
+      setStudentErr(T.errEmail);
     }
-    saveStudents([...getStudents(), { id: `s_${Date.now()}`, name: studentForm.name, age: Number(studentForm.age) || 0, level: studentForm.level, parentId: parent.id, sessions: [], photo: studentForm.photo || undefined }]);
-    refresh(); setStudentForm(emptyStudent()); setShowAddStudent(false);
-    flash(T.toastStudent);
+    setSubmitting(false);
   }
 
-  function handleEditStudent() {
+  async function handleEditStudent() {
     if (!editingStudentId) return;
-    const updated = students.map((s) =>
+    setSubmitting(true);
+    await updateStudent(editingStudentId, { name: editForm.name, age: Number(editForm.age) || 0, level: editForm.level, photo: editForm.photo || null });
+    setStudents((prev) => prev.map((s) =>
       s.id !== editingStudentId ? s : { ...s, name: editForm.name, age: Number(editForm.age) || 0, level: editForm.level, photo: editForm.photo || undefined }
-    );
-    saveStudents(updated); setStudents(updated); setEditingStudentId(null);
+    ));
+    setEditingStudentId(null);
     flash(T.toastEdited);
+    setSubmitting(false);
   }
 
-  function handleDeleteStudent(id: string) {
-    const updated = students.filter((s) => s.id !== id);
-    saveStudents(updated); setStudents(updated); setDeletingStudentId(null);
+  async function handleDeleteStudent(id: string) {
+    setSubmitting(true);
+    await deleteStudent(id);
+    setStudents((prev) => prev.filter((s) => s.id !== id));
+    setDeletingStudentId(null);
     if (expandedId === id) setExpandedId(null);
     if (editingStudentId === id) setEditingStudentId(null);
     flash(T.toastDeleted);
+    setSubmitting(false);
   }
 
-  function handleSaveMemo(studentId: string) {
-    const updated = students.map((s) => s.id !== studentId ? s : { ...s, memorization: memoEdit });
-    saveStudents(updated); setStudents(updated);
+  async function handleSaveMemo(studentId: string) {
+    setSubmitting(true);
+    await saveMemoMap(studentId, memoEdit);
+    setStudents((prev) => prev.map((s) => s.id !== studentId ? s : { ...s, memorization: memoEdit }));
     flash(T.toastMemo);
+    setSubmitting(false);
   }
 
-  function handleAddProf() {
+  async function handleAddProf() {
     setProfErr("");
     const { name, email, password } = profForm;
     if (!name.trim() || !email.trim() || !password.trim()) { setProfErr(T.errRequired); return; }
-    const allUsers = getUsers();
-    if (allUsers.find((u) => u.email === email)) { setProfErr(T.errEmail); return; }
-    saveUsers([...allUsers, { id: `u_${Date.now()}`, name, email, password, role: "professor", specialty: profForm.specialty }]);
-    refresh(); setProfForm(emptyProf()); setShowAddProf(false);
-    flash(T.toastProf);
+    if (profiles.find((u) => u.email === email)) { setProfErr(T.errEmail); return; }
+    setSubmitting(true);
+    try {
+      const newProf = await createUser(email, password, name, "professor", profForm.specialty || undefined);
+      setProfiles((prev) => [...prev, newProf]);
+      setProfForm(emptyProf()); setShowAddProf(false);
+      flash(T.toastProf);
+    } catch {
+      setProfErr(T.errEmail);
+    }
+    setSubmitting(false);
   }
 
-  function handleDeleteProf(id: string) {
-    const updated = users.filter((u) => u.id !== id);
-    saveUsers(updated); setUsers(updated); setDeletingProfId(null);
+  async function handleDeleteProf(id: string) {
+    setSubmitting(true);
+    await deleteProfile(id);
+    setProfiles((prev) => prev.filter((u) => u.id !== id));
+    setDeletingProfId(null);
     flash(T.toastDeleted);
+    setSubmitting(false);
   }
 
-  function handleAddAnnouncement() {
+  async function handleAddAnnouncement() {
     setAnnErr("");
     if (!annForm.title.trim()) { setAnnErr(T.errRequired); return; }
-    const newAnn: Announcement = { id: `ann_${Date.now()}`, title: annForm.title, body: annForm.body, image: annForm.image || undefined, date: new Date().toISOString().split("T")[0] };
-    const updated = [newAnn, ...announcements];
-    saveAnnouncements(updated); setAnnouncements(updated);
+    setSubmitting(true);
+    const newAnn = await addAnnouncement({ title: annForm.title, body: annForm.body, image: annForm.image || undefined, date: new Date().toISOString().split("T")[0] });
+    setAnnouncements((prev) => [newAnn, ...prev]);
     setAnnForm(emptyAnn()); setShowAddAnn(false);
     flash(T.toastAnnouncement);
+    setSubmitting(false);
   }
 
-  function handleDeleteAnnouncement(id: string) {
-    const updated = announcements.filter((a) => a.id !== id);
-    saveAnnouncements(updated); setAnnouncements(updated); setDeletingAnnId(null);
+  async function handleDeleteAnnouncement(id: string) {
+    setSubmitting(true);
+    await deleteAnnouncement(id);
+    setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+    setDeletingAnnId(null);
     flash(T.toastDeleted);
+    setSubmitting(false);
   }
 
-  function handleSaveExam() {
+  async function handleSaveExam() {
     setExamErr("");
     if (!examForm.title.trim()) { setExamErr(T.errRequired); return; }
     if (examForm.questions.length === 0) { setExamErr(T.errNoQuestions); return; }
     if (examForm.questions.some((q) => !q.text.trim())) { setExamErr(T.errQuestionEmpty); return; }
     if (examForm.questions.some((q) => q.options.some((o) => !o.text.trim()))) { setExamErr(T.errOptionEmpty); return; }
-    const newExam: Exam = {
-      id: `exam_${Date.now()}`,
+    setSubmitting(true);
+    await addExam({
       title: examForm.title,
       professorId: user!.id,
       date: new Date().toISOString().split("T")[0],
       questions: examForm.questions,
-    };
-    const updated = [newExam, ...exams];
-    saveExams(updated); setExams(updated);
+    });
+    const updatedExams = await getExams();
+    setExams(updatedExams);
     setExamForm(emptyExamDraft()); setShowCreateExam(false);
     flash(T.toastExam);
+    setSubmitting(false);
   }
 
-  function handleDeleteExam(id: string) {
-    const updatedExams = exams.filter((e) => e.id !== id);
-    const updatedResults = examResults.filter((r) => r.examId !== id);
-    saveExams(updatedExams); setExams(updatedExams);
-    saveExamResults(updatedResults); setExamResults(updatedResults);
+  async function handleDeleteExam(id: string) {
+    setSubmitting(true);
+    await deleteExamResults(id);
+    await deleteExam(id);
+    setExams((prev) => prev.filter((e) => e.id !== id));
+    setExamResults((prev) => prev.filter((r) => r.examId !== id));
     setDeletingExamId(null);
     if (expandedExamId === id) setExpandedExamId(null);
     flash(T.toastDeleted);
+    setSubmitting(false);
   }
 
-  function handleSaveTop3() {
+  async function handleSaveTop3() {
     const entries: TopEntry[] = [];
     if (topForm.r1) entries.push({ rank: 1, studentId: topForm.r1 });
     if (topForm.r2) entries.push({ rank: 2, studentId: topForm.r2 });
     if (topForm.r3) entries.push({ rank: 3, studentId: topForm.r3 });
-    saveTopStudents(entries); setTopStudents(entries);
+    setSubmitting(true);
+    await saveTopStudents(entries);
+    setTopStudents(entries);
     flash(T.toastTop3);
+    setSubmitting(false);
   }
 
-  const professors = users.filter((u) => u.role === "professor");
+  const professors = profiles.filter((u) => u.role === "professor");
   const filtered = students.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const getParentName = (parentId: string) => users.find((u) => u.id === parentId)?.name ?? "—";
+  const getParentName = (parentId: string) => profiles.find((u) => u.id === parentId)?.name ?? "—";
 
   if (!user) return null;
 
@@ -1075,7 +1123,7 @@ export default function ProfessorDashboard() {
             ) : (
               <div className="space-y-3">
                 {exams.map((exam) => {
-                  const prof = users.find((u) => u.id === exam.professorId);
+                  const prof = profiles.find((u) => u.id === exam.professorId);
                   const results = examResults.filter((r) => r.examId === exam.id);
                   const isExpanded = expandedExamId === exam.id;
                   return (

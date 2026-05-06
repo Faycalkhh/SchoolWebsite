@@ -4,8 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen, Eye, EyeOff, Users } from "lucide-react";
-import { findUser } from "@/lib/store";
-import { useAuth } from "@/context/AuthContext";
+import { signIn } from "@/lib/store";
 import { useLanguage } from "@/context/LanguageContext";
 
 const t = {
@@ -42,7 +41,6 @@ const t = {
 };
 
 export default function ParentLogin() {
-  const { login } = useAuth();
   const router = useRouter();
   const { lang, dir } = useLanguage();
   const T = t[lang];
@@ -57,14 +55,12 @@ export default function ParentLogin() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    await new Promise((r) => setTimeout(r, 400));
-    const user = findUser(email, password);
+    const user = await signIn(email, password);
     if (!user || user.role !== "parent") {
       setError(T.error);
       setLoading(false);
       return;
     }
-    login(user);
     router.push("/dashboard/parent");
   }
 

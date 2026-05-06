@@ -23,7 +23,7 @@ export default function AnnouncementSection() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   useEffect(() => {
-    setAnnouncements(getAnnouncements().slice(0, 6));
+    getAnnouncements().then((anns) => setAnnouncements(anns.slice(0, 6)));
   }, []);
 
   if (announcements.length === 0) return null;
