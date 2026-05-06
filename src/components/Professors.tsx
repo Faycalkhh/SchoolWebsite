@@ -11,19 +11,14 @@ const professors = [
     img: "/MustaphaChikh.jpeg",
   },
   {
-    ar: { name: "الأستاذة فاطمة النوري", specialty: "الحفظ والمراجعة", bio: "حافظة للقرآن الكريم، تُرشد الطلاب في مسيرة الحفظ بأسلوب متميز." },
-    fr: { name: "Ustaza Fatima Al-Nouri", specialty: "Hifz & Mémorisation", bio: "Hafiza du Coran, guide les étudiants dans leur parcours de mémorisation." },
-    img: "/MustaphaChikh.jpeg",
+    ar: { name: "الشيخ ميمون محمد", specialty: "الحفظ والمراجعة", bio: "حافظة للقرآن الكريم، تُرشد الطلاب في مسيرة الحفظ بأسلوب متميز." },
+    fr: { name: "Sheikh Maimun Muhammad", specialty: "Hifz & Mémorisation", bio: "Hafiza du Coran, guide les étudiants dans leur parcours de mémorisation." },
+    img: "/Prof3.jpeg",
   },
   {
-    ar: { name: "الشيخ عمر خالد", specialty: "اللغة العربية", bio: "متخصص في اللغة العربية الكلاسيكية واللغة القرآنية." },
-    fr: { name: "Sheikh Omar Khalid", specialty: "Langue Arabe", bio: "Spécialiste en arabe classique et en langue coranique." },
-    img: "/MustaphaChikh.jpeg",
-  },
-  {
-    ar: { name: "الأستاذة زينب كريم", specialty: "المبتدئون والكبار", bio: "متخصصة في تعليم المبتدئين والكبار بأسلوب صبور ومشجّع." },
-    fr: { name: "Ustaza Zainab Karim", specialty: "Débutants & Adultes", bio: "Spécialiste en enseignement pour débutants avec une approche bienveillante." },
-    img: "/MustaphaChikh.jpeg",
+    ar: { name: "الشيخ عبو عبد الله", specialty: "اللغة العربية", bio: "متخصص في اللغة العربية الكلاسيكية واللغة القرآنية." },
+    fr: { name: "Sheikh Abou abdellah", specialty: "Langue Arabe", bio: "Spécialiste en arabe classique et en langue coranique." },
+    img: "/Prof2.jpeg",
   },
 ];
 
@@ -49,7 +44,7 @@ export default function Professors() {
           </div>
         </AnimateIn>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {professors.map((prof, i) => {
             const data = prof[lang];
             return (

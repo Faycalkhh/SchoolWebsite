@@ -16,7 +16,7 @@ import {
   getTopStudents, saveTopStudents, getAnnouncements, saveAnnouncements,
   getExams, saveExams, getExamResults, saveExamResults,
 } from "@/lib/store";
-import type { Student, Session, User, Discipline, Level, TopEntry, Announcement, Exam, ExamResult, QCMQuestion, QCMOption } from "@/lib/types";
+import type { Student, Session, User, Discipline, Level, TopEntry, Announcement, Exam, ExamResult, QCMQuestion } from "@/lib/types";
 import type { SurahStatus } from "@/lib/quran";
 import MemoMap from "@/components/MemoMap";
 
@@ -579,12 +579,12 @@ export default function ProfessorDashboard() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-1 bg-white rounded-xl p-1 border border-[#e8dfc8] mb-6 w-fit shadow-sm">
+        <div className="flex gap-1 overflow-x-auto bg-white rounded-xl p-1 border border-[#e8dfc8] mb-6 shadow-sm [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {tabConfig.map(({ key, label, icon, count }) => (
             <button key={key} onClick={() => setTab(key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === key ? "bg-[#2d6a4f] text-white shadow-sm" : "text-[#777] hover:text-[#1a1a1a]"}`}>
+              className={`flex items-center gap-1.5 px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${tab === key ? "bg-[#2d6a4f] text-white shadow-sm" : "text-[#777] hover:text-[#1a1a1a]"}`}>
               {icon}{label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === key ? "bg-white/20 text-white" : "bg-[#f0ead8] text-[#888]"}`}>{count}</span>
+              <span className={`hidden sm:inline text-xs px-1.5 py-0.5 rounded-full ${tab === key ? "bg-white/20 text-white" : "bg-[#f0ead8] text-[#888]"}`}>{count}</span>
             </button>
           ))}
         </div>

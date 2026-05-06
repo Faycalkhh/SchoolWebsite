@@ -65,7 +65,7 @@ export default function TopStudents() {
         </AnimateIn>
 
         <AnimateIn delay={0.15}>
-          <div className="flex items-end justify-center gap-4 md:gap-8">
+          <div className="flex items-end justify-center gap-2 sm:gap-4 md:gap-8">
             {podiumOrder.map((student) => {
               const data = student[lang];
               const colors = podiumColors[student.rank];
@@ -73,19 +73,19 @@ export default function TopStudents() {
               const isFirst = student.rank === 1;
 
               return (
-                <div key={student.rank} className="flex flex-col items-center w-32 md:w-48">
-                  <div className="text-center mb-3 px-1">
+                <div key={student.rank} className="flex flex-col items-center w-[30%] max-w-[120px] sm:max-w-[140px] md:max-w-[192px]">
+                  <div className="text-center mb-2 sm:mb-3 px-1 w-full">
                     <div
                       className={`relative mx-auto mb-2 rounded-full overflow-hidden border-4 ${colors.border} ${
-                        isFirst ? "w-28 h-28 md:w-36 md:h-36" : "w-24 h-24 md:w-28 md:h-28"
+                        isFirst ? "w-16 h-16 sm:w-24 sm:h-24 md:w-36 md:h-36" : "w-14 h-14 sm:w-20 sm:h-20 md:w-28 md:h-28"
                       }`}
                     >
                       <Image src={student.img} alt={data.name} fill className="object-cover" />
                     </div>
-                    <p className={`text-white font-bold leading-tight mb-1 ${isFirst ? "text-sm md:text-base" : "text-xs md:text-sm"}`}>
+                    <p className={`text-white font-bold leading-tight mb-1 truncate ${isFirst ? "text-[11px] sm:text-sm md:text-base" : "text-[10px] sm:text-xs md:text-sm"}`}>
                       {data.name}
                     </p>
-                    <p className="text-white/50 text-[10px] md:text-xs leading-snug">
+                    <p className="text-white/50 text-[9px] sm:text-[10px] md:text-xs leading-snug line-clamp-2">
                       {data.achievement}
                     </p>
                   </div>
@@ -93,7 +93,7 @@ export default function TopStudents() {
                   <div
                     className={`w-full ${blockH} ${colors.block} rounded-t-xl flex flex-col items-center justify-center gap-1`}
                   >
-                    <span className="text-white font-black text-2xl md:text-3xl">{student.rank}</span>
+                    <span className="text-white font-black text-xl sm:text-2xl md:text-3xl">{student.rank}</span>
                     {student.rank === 1 && (
                       <span className="text-white/70 text-[10px] tracking-widest">🥇</span>
                     )}

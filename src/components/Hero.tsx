@@ -24,7 +24,7 @@ export default function Hero() {
       <div className="absolute inset-0 hero-overlay" />
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#c9a84c] to-transparent opacity-70" />
 
-      <div className="relative z-10 text-right px-6 lg:px-20 max-w-2xl">
+      <div className="relative z-10 text-right px-5 sm:px-8 lg:px-20 max-w-2xl">
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -42,7 +42,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.5 }}
-          className="text-5xl md:text-7xl font-bold text-white leading-tight mb-4"
+          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-4"
         >
           {T.hero.title1}{" "}
           <span className="block text-[#c9a84c]">{T.hero.title2}</span>
@@ -52,7 +52,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.65 }}
-          className="text-white/75 text-lg max-w-xl mb-10"
+          className="text-white/75 text-base sm:text-lg max-w-xl mb-8 sm:mb-10"
         >
           {T.hero.subtitle}
         </motion.p>
@@ -75,12 +75,12 @@ export default function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 1.0 }}
-          className="mt-16 grid grid-cols-3 gap-6 max-w-sm"
+          className="mt-10 sm:mt-16 grid grid-cols-3 gap-4 sm:gap-6 max-w-xs sm:max-w-sm"
         >
           {stats.map((s) => (
             <div key={s.label} className="text-center">
-              <div className="text-[#c9a84c] text-3xl font-bold">{s.value}</div>
-              <div className="text-white/55 text-xs uppercase tracking-widest mt-1">{s.label}</div>
+              <div className="text-[#c9a84c] text-2xl sm:text-3xl font-bold">{s.value}</div>
+              <div className="text-white/55 text-[10px] sm:text-xs uppercase tracking-widest mt-1">{s.label}</div>
             </div>
           ))}
         </motion.div>

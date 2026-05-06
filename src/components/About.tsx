@@ -15,7 +15,7 @@ export default function About() {
           {/* Image */}
           <AnimateIn direction="left">
             <div className="relative">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl aspect-[3/4]">
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl aspect-[4/3] sm:aspect-[3/4]">
                 <Image
                   src="https://images.unsplash.com/photo-1577896851231-70ef18881754?w=800&q=80"
                   alt="Students learning Quran"
@@ -25,12 +25,12 @@ export default function About() {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1a3a2c]/40 to-transparent" />
               </div>
 
-              <div className="absolute -bottom-6 -right-6 bg-white rounded-2xl shadow-xl p-5 max-w-[190px]">
+              <div className="hidden sm:block absolute -bottom-6 -right-6 bg-white rounded-2xl shadow-xl p-5 max-w-[190px]">
                 <div className="text-[#c9a84c] text-3xl font-bold">{T.about.floatNum}</div>
                 <div className="text-[#1a1a1a] text-sm font-semibold mt-0.5">{T.about.floatLabel}</div>
                 <div className="text-[#888] text-xs mt-1 leading-snug">{T.about.floatDesc}</div>
               </div>
-              <div className="absolute -top-4 -left-4 w-full h-full rounded-3xl border-2 border-[#c9a84c]/20 -z-10" />
+              <div className="hidden sm:block absolute -top-4 -left-4 w-full h-full rounded-3xl border-2 border-[#c9a84c]/20 -z-10" />
             </div>
           </AnimateIn>
 
