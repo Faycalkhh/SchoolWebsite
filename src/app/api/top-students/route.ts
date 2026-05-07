@@ -17,7 +17,7 @@ export async function GET() {
 
   return NextResponse.json(
     data.map((e) => {
-      const s = e.students as { name: string; level: string; photo: string | null } | null;
+      const s = (e.students as unknown) as { name: string; level: string; photo: string | null } | null;
       return { rank: e.rank, name: s?.name ?? "—", level: s?.level ?? "", photo: s?.photo ?? null };
     })
   );
