@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cairo, Playfair_Display } from "next/font/google";
 import Providers from "@/components/Providers";
+import ServiceWorker from "@/components/ServiceWorker";
 import "./globals.css";
 
 const cairo = Cairo({
@@ -29,6 +30,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={`${cairo.variable} ${playfair.variable}`}>
       <body className="font-[family-name:var(--font-cairo)] antialiased">
+        <ServiceWorker />
         <Providers>{children}</Providers>
       </body>
     </html>

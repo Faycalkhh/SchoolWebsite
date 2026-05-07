@@ -296,13 +296,13 @@ export async function saveMemoMap(
 
 export async function signIn(email: string, password: string): Promise<User | null> {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error || !data.user) return null;
-  const { data: profile } = await supabase
+  if (error || !data.user) { console.error("[signIn] auth error:", error?.message, error?.status); return null; }
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", data.user.id)
     .single();
-  if (!profile) return null;
+  if (!profile) { console.error("[signIn] profile not found for uid:", data.user.id, profileError?.message); return null; }
   return {
     id:        profile.id,
     name:      profile.name,
