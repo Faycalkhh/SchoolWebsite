@@ -65,8 +65,7 @@ export default function Professors() {
                     </div>
                   </div>
                   <div className="p-5">
-                    <h3 className="text-lg font-bold text-[#1a1a1a] mb-1.5">{data.name}</h3>
-                    <p className="text-[#777] text-sm leading-relaxed">{data.bio}</p>
+                    <h3 className="text-lg font-bold text-[#1a1a1a]">{data.name}</h3>
                   </div>
                 </div>
               </AnimateIn>

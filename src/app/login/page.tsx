@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BookOpen, GraduationCap, Users } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
+import LangToggle from "@/components/LangToggle";
 
 const t = {
   ar: {
@@ -35,6 +36,7 @@ export default function LoginSelect() {
 
   return (
     <div className="min-h-screen bg-[#f5f0e8] flex flex-col items-center justify-center px-4 py-12" dir={dir}>
+      <LangToggle />
       <Link href="/" className="flex items-center gap-3 mb-10">
         <div className="w-12 h-12 rounded-full bg-[#2d6a4f] flex items-center justify-center">
           <BookOpen size={22} className="text-[#c9a84c]" />

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { BookOpen, Eye, EyeOff, GraduationCap } from "lucide-react";
 import { signIn } from "@/lib/store";
 import { useLanguage } from "@/context/LanguageContext";
+import LangToggle from "@/components/LangToggle";
 
 const t = {
   ar: {
@@ -71,6 +72,7 @@ export default function ProfessorLogin() {
 
   return (
     <div className="min-h-screen bg-[#f5f0e8] flex items-center justify-center px-4 py-12" dir={dir}>
+      <LangToggle />
       <div className="w-full max-w-md">
         <div className="bg-white rounded-3xl shadow-lg border border-[#e8dfc8] p-8">
           <div className="text-center mb-8">

@@ -23,18 +23,24 @@ const LanguageContext = createContext<LanguageCtx>({
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>("ar");
+  const [lang, setLangState] = useState<Lang>("ar");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("lang");
+    if (saved === "ar" || saved === "fr") setLangState(saved);
+  }, []);
 
   useEffect(() => {
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = lang;
+    localStorage.setItem("lang", lang);
   }, [lang]);
 
   return (
     <LanguageContext.Provider
       value={{
         lang,
-        setLang,
+        setLang: setLangState,
         T: translations[lang],
         dir: lang === "ar" ? "rtl" : "ltr",
       }}

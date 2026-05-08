@@ -55,11 +55,17 @@ export default function Contact() {
               })}
             </div>
 
-            <div className="rounded-2xl h-44 bg-[#f5f0e8] border border-[#e8dfc8] flex items-center justify-center">
-              <div className="text-center text-[#999]">
-                <MapPin className="mx-auto mb-2 text-[#2d6a4f]" size={26} />
-                <p className="text-sm">{T.contact.map}</p>
-              </div>
+            <div className="rounded-2xl overflow-hidden border border-[#e8dfc8]">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d23815.770808605477!2d-0.5731806299208875!3d35.73626335331962!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd7e7d005ccd053b%3A0x9c21bf791b14679f!2z2YXYs9is2K8g2LnYqNivINin2YTZgtin2K_YsSDYp9mE2YrYp9is2YjYsdmK!5e0!3m2!1sfr!2sdz!4v1778236295163!5m2!1sfr!2sdz"
+                width="100%"
+                height="280"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Nur Al-Quran location"
+              />
             </div>
           </AnimateIn>
 
