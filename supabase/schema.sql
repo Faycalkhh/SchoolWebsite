@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email       TEXT UNIQUE,
   role        TEXT NOT NULL CHECK (role IN ('professor', 'parent')),
   specialty   TEXT,
+  bio         TEXT,
+  photo       TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -139,6 +141,11 @@ CREATE POLICY "users_read_own_profile"
 CREATE POLICY "professors_insert_profiles"
   ON public.profiles FOR INSERT TO authenticated
   WITH CHECK (get_my_role() = 'professor');
+
+CREATE POLICY "professors_update_profiles"
+  ON public.profiles FOR UPDATE TO authenticated
+  USING (get_my_role() = 'professor' OR id = auth.uid())
+  WITH CHECK (get_my_role() = 'professor' OR id = auth.uid());
 
 CREATE POLICY "professors_delete_profiles"
   ON public.profiles FOR DELETE TO authenticated

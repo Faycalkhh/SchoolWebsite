@@ -13,7 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import type { Lang } from "@/context/LanguageContext";
 import {
   getStudents, addStudent, updateStudent, deleteStudent,
-  getProfiles, createUser, deleteProfile,
+  getProfiles, createUser, deleteProfile, updateProfile,
   addSession,
   getTopStudents, saveTopStudents,
   getAnnouncements, addAnnouncement, deleteAnnouncement,
@@ -93,6 +93,10 @@ const t = {
     fieldPassword: "كلمة المرور *",
     fieldSpecialty: "التخصص",
     specialtyPh: "التجويد، الحفظ، اللغة العربية...",
+    fieldBio: "نبذة",
+    bioPh: "حامل إجازة، خبرة...",
+    photoProf: "صورة الأستاذ",
+    editProf: "تعديل الأستاذ",
     yourAccount: "حسابك",
     ageSuffix: "سنة",
     prevPage: "السابق",
@@ -208,6 +212,10 @@ const t = {
     fieldPassword: "Mot de passe *",
     fieldSpecialty: "Spécialité",
     specialtyPh: "Tajweed, Hifz, Langue Arabe...",
+    fieldBio: "Biographie",
+    bioPh: "Titulaire d'une Ijazah, expérience...",
+    photoProf: "Photo du professeur",
+    editProf: "Modifier le professeur",
     yourAccount: "Votre compte",
     ageSuffix: "ans",
     prevPage: "Précédent",
@@ -316,7 +324,7 @@ function initials(name: string) {
 
 const emptySession = () => ({ date: new Date().toISOString().split("T")[0], present: true, discipline: "bon" as Discipline, memorization: "", comment: "" });
 const emptyStudent = () => ({ name: "", age: "", level: "Débutant" as Level, parentEmail: "", parentName: "", photo: "" });
-const emptyProf = () => ({ name: "", email: "", password: "", specialty: "" });
+const emptyProf = () => ({ name: "", email: "", password: "", specialty: "", bio: "", photo: "" });
 const emptyAnn = () => ({ title: "", body: "", image: "" });
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
@@ -340,7 +348,7 @@ function scoreColor(score: number) {
 }
 
 export default function ProfessorDashboard() {
-  const { user, logout } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const { lang, dir, setLang } = useLanguage();
   const T = t[lang];
   const router = useRouter();
@@ -375,6 +383,8 @@ export default function ProfessorDashboard() {
   const [editForm, setEditForm] = useState<{ name: string; age: string; level: Level; photo: string }>({ name: "", age: "", level: "Débutant", photo: "" });
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
   const [deletingProfId, setDeletingProfId] = useState<string | null>(null);
+  const [editingProfId, setEditingProfId] = useState<string | null>(null);
+  const [editProfForm, setEditProfForm] = useState<{ name: string; specialty: string; bio: string; photo: string }>({ name: "", specialty: "", bio: "", photo: "" });
   const [deletingAnnId, setDeletingAnnId] = useState<string | null>(null);
 
   const [exams, setExams] = useState<Exam[]>([]);
@@ -386,6 +396,7 @@ export default function ProfessorDashboard() {
   const [deletingExamId, setDeletingExamId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) { router.push("/login"); return; }
     if (user.role !== "professor") { router.push("/login"); return; }
     (async () => {
@@ -407,7 +418,7 @@ export default function ProfessorDashboard() {
       });
       setTopForm(form);
     })();
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
   useEffect(() => { setPage(0); }, [search]);
 
@@ -432,6 +443,20 @@ export default function ProfessorDashboard() {
       s.id !== studentId ? s : { ...s, sessions: [newSession, ...s.sessions] }
     ));
     setShowNewSession(null); setSessionForm(emptySession());
+    // Fire-and-forget email to parent
+    fetch("/api/notify-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentId,
+        professorId:  user!.id,
+        date:         sessionForm.date,
+        present:      sessionForm.present,
+        discipline:   sessionForm.discipline,
+        memorization: sessionForm.memorization,
+        comment:      sessionForm.comment,
+      }),
+    }).catch(() => {});
     flash(T.toastSession);
     setSubmitting(false);
   }
@@ -495,13 +520,35 @@ export default function ProfessorDashboard() {
     if (profiles.find((u) => u.email === email)) { setProfErr(T.errEmail); return; }
     setSubmitting(true);
     try {
-      const newProf = await createUser(email, password, name, "professor", profForm.specialty || undefined);
+      const newProf = await createUser(email, password, name, "professor", profForm.specialty || undefined, profForm.bio || undefined, profForm.photo || undefined);
       setProfiles((prev) => [...prev, newProf]);
       setProfForm(emptyProf()); setShowAddProf(false);
       flash(T.toastProf);
     } catch {
       setProfErr(T.errEmail);
     }
+    setSubmitting(false);
+  }
+
+  function startEditProf(p: User) {
+    setEditingProfId(p.id);
+    setEditProfForm({ name: p.name, specialty: p.specialty ?? "", bio: p.bio ?? "", photo: p.photo ?? "" });
+  }
+
+  async function handleSaveEditProf() {
+    if (!editingProfId) return;
+    setSubmitting(true);
+    await updateProfile(editingProfId, {
+      name:      editProfForm.name,
+      specialty: editProfForm.specialty || null,
+      bio:       editProfForm.bio || null,
+      photo:     editProfForm.photo || null,
+    });
+    setProfiles((prev) => prev.map((p) =>
+      p.id !== editingProfId ? p : { ...p, name: editProfForm.name, specialty: editProfForm.specialty || undefined, bio: editProfForm.bio || undefined, photo: editProfForm.photo || undefined }
+    ));
+    setEditingProfId(null);
+    flash(T.toastEdited);
     setSubmitting(false);
   }
 
@@ -579,6 +626,7 @@ export default function ProfessorDashboard() {
   }
 
   const professors = profiles.filter((u) => u.role === "professor");
+  const isAdmin = user?.email === "prof@nur.com";
   const filtered = students.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -622,8 +670,17 @@ export default function ProfessorDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
         {toast && (
-          <div className="mb-5 flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-4 py-3 rounded-xl">
-            <CheckCircle size={15} className="shrink-0" />{toast}
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="pointer-events-auto bg-white border border-emerald-200 shadow-2xl rounded-2xl px-8 py-6 flex flex-col items-center gap-3 min-w-[280px] animate-[toastIn_0.25s_ease-out]">
+              <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
+                <CheckCircle size={32} className="text-emerald-600" />
+              </div>
+              <p className="text-emerald-700 font-semibold text-center">{toast}</p>
+            </div>
           </div>
         )}
 
@@ -884,12 +941,14 @@ export default function ProfessorDashboard() {
         {/* ── PROFESSORS TAB ── */}
         {tab === "professors" && (
           <div className="space-y-4">
-            <div className="flex justify-end">
-              <button onClick={() => { setShowAddProf(!showAddProf); setProfErr(""); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors shadow-sm">
-                <Plus size={15} />{T.addProf}
-              </button>
-            </div>
-            {showAddProf && (
+            {isAdmin && (
+              <div className="flex justify-end">
+                <button onClick={() => { setShowAddProf(!showAddProf); setProfErr(""); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors shadow-sm">
+                  <Plus size={15} />{T.addProf}
+                </button>
+              </div>
+            )}
+            {isAdmin && showAddProf && (
               <div className="bg-white rounded-2xl border border-[#e8dfc8] p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-5">
                   <h3 className="font-bold text-[#1a1a1a]">{T.newProf}</h3>
@@ -900,6 +959,13 @@ export default function ProfessorDashboard() {
                   <div><label className={LABEL}>{T.fieldEmail}</label><input type="email" className={INPUT} dir="ltr" placeholder="omar@nur.com" value={profForm.email} onChange={(e) => setProfForm({ ...profForm, email: e.target.value })} /></div>
                   <div><label className={LABEL}>{T.fieldPassword}</label><input type="password" className={INPUT} placeholder="••••••••" value={profForm.password} onChange={(e) => setProfForm({ ...profForm, password: e.target.value })} /></div>
                   <div><label className={LABEL}>{T.fieldSpecialty}</label><input className={INPUT} placeholder={T.specialtyPh} value={profForm.specialty} onChange={(e) => setProfForm({ ...profForm, specialty: e.target.value })} /></div>
+                  <div className="sm:col-span-2"><label className={LABEL}>{T.fieldBio}</label><textarea rows={3} className={INPUT} placeholder={T.bioPh} value={profForm.bio} onChange={(e) => setProfForm({ ...profForm, bio: e.target.value })} /></div>
+                  <div className="sm:col-span-2">
+                    <label className={LABEL}>{T.photoProf}</label>
+                    {profForm.photo && <img src={profForm.photo} className="w-16 h-16 rounded-full object-cover mb-2" alt="" />}
+                    <input type="file" accept="image/*" className="text-xs text-[#666] file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#2d6a4f]/10 file:text-[#2d6a4f] file:font-semibold cursor-pointer"
+                      onChange={async (e) => { const f = e.target.files?.[0]; if (f) setProfForm({ ...profForm, photo: await resizeToBase64(f) }); }} />
+                  </div>
                 </div>
                 {profErr && <p className="text-red-500 text-sm mt-3">{profErr}</p>}
                 <div className="flex gap-3 mt-5">
@@ -919,21 +985,48 @@ export default function ProfessorDashboard() {
                         <button onClick={() => setDeletingProfId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
                       </div>
                     </div>
+                  ) : editingProfId === prof.id ? (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-bold text-[#1a1a1a]">{T.editProf}</h4>
+                      <div><label className={LABEL}>{T.fieldName}</label><input className={INPUT} value={editProfForm.name} onChange={(e) => setEditProfForm({ ...editProfForm, name: e.target.value })} /></div>
+                      <div><label className={LABEL}>{T.fieldSpecialty}</label><input className={INPUT} placeholder={T.specialtyPh} value={editProfForm.specialty} onChange={(e) => setEditProfForm({ ...editProfForm, specialty: e.target.value })} /></div>
+                      <div><label className={LABEL}>{T.fieldBio}</label><textarea rows={3} className={INPUT} placeholder={T.bioPh} value={editProfForm.bio} onChange={(e) => setEditProfForm({ ...editProfForm, bio: e.target.value })} /></div>
+                      <div>
+                        <label className={LABEL}>{T.photoProf}</label>
+                        {editProfForm.photo && <img src={editProfForm.photo.startsWith("data:") ? editProfForm.photo : `data:image/jpeg;base64,${editProfForm.photo}`} className="w-14 h-14 rounded-full object-cover mb-2" alt="" />}
+                        <input type="file" accept="image/*" className="text-xs text-[#666] file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#2d6a4f]/10 file:text-[#2d6a4f] file:font-semibold cursor-pointer"
+                          onChange={async (e) => { const f = e.target.files?.[0]; if (f) setEditProfForm({ ...editProfForm, photo: await resizeToBase64(f) }); }} />
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <button onClick={handleSaveEditProf} className="px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] transition-colors">{T.save}</button>
+                        <button onClick={() => setEditingProfId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-full bg-[#2d6a4f]/10 flex items-center justify-center text-[#2d6a4f] font-bold text-sm shrink-0">{initials(prof.name)}</div>
+                          {prof.photo ? (
+                            <img src={prof.photo.startsWith("data:") ? prof.photo : `data:image/jpeg;base64,${prof.photo}`} className="w-11 h-11 rounded-full object-cover shrink-0" alt={prof.name} />
+                          ) : (
+                            <div className="w-11 h-11 rounded-full bg-[#2d6a4f]/10 flex items-center justify-center text-[#2d6a4f] font-bold text-sm shrink-0">{initials(prof.name)}</div>
+                          )}
                           <div>
                             <div className="font-semibold text-[#1a1a1a] text-sm">{prof.name}</div>
                             <div className="text-xs text-[#c9a84c] font-medium">{prof.specialty || T.professor}</div>
                           </div>
                         </div>
-                        {prof.id !== user.id && (
-                          <button onClick={() => setDeletingProfId(prof.id)} className="p-1.5 rounded-lg text-[#bbb] hover:text-red-500 hover:bg-red-50 transition-colors" title={T.deleteLabel}><Trash2 size={14} /></button>
+                        {isAdmin && (
+                          <div className="flex gap-1">
+                            <button onClick={() => startEditProf(prof)} className="p-1.5 rounded-lg text-[#bbb] hover:text-[#2d6a4f] hover:bg-[#2d6a4f]/10 transition-colors" title={T.editLabel}><Pencil size={14} /></button>
+                            {prof.id !== user.id && (
+                              <button onClick={() => setDeletingProfId(prof.id)} className="p-1.5 rounded-lg text-[#bbb] hover:text-red-500 hover:bg-red-50 transition-colors" title={T.deleteLabel}><Trash2 size={14} /></button>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <div className="text-xs text-[#aaa]">{prof.email}</div>
+                      <div className="text-xs text-[#aaa] mb-2">{prof.email}</div>
+                      {prof.bio && <p className="text-xs text-[#666] leading-relaxed">{prof.bio}</p>}
                       {prof.id === user.id && <span className="mt-3 inline-block text-xs bg-[#2d6a4f]/10 text-[#2d6a4f] px-2.5 py-0.5 rounded-full font-semibold">{T.yourAccount}</span>}
                     </>
                   )}

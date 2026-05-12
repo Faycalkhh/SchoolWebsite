@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { sendWelcomeEmail } from "@/lib/email";
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +9,7 @@ const adminSupabase = createClient(
 );
 
 export async function POST(req: NextRequest) {
-  const { email, password, name, role, specialty } = await req.json();
+  const { email, password, name, role, specialty, bio, photo } = await req.json();
 
   if (!email || !password || !name || !role) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -34,13 +35,24 @@ export async function POST(req: NextRequest) {
 
   const { data: profile, error: profileError } = await adminSupabase
     .from("profiles")
-    .insert({ id: data.user.id, name, email, role, specialty: specialty ?? null })
+    .insert({
+      id:        data.user.id,
+      name,
+      email,
+      role,
+      specialty: specialty ?? null,
+      bio:       bio       ?? null,
+      photo:     photo     ?? null,
+    })
     .select()
     .single();
 
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 400 });
   }
+
+  // Fire and forget — don't block the response if email fails
+  sendWelcomeEmail({ to: email, name, password, role }).catch(() => {});
 
   return NextResponse.json({ user: profile });
 }

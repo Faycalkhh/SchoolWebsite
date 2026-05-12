@@ -17,6 +17,8 @@ export interface User {
   password: string;
   role: Role;
   specialty?: string;
+  bio?: string;
+  photo?: string;
 }
 
 export interface Session {

@@ -68,6 +68,8 @@ export async function getProfiles(): Promise<User[]> {
     password:  "",
     role:      p.role,
     specialty: p.specialty ?? undefined,
+    bio:       p.bio ?? undefined,
+    photo:     p.photo ?? undefined,
   }));
 }
 
@@ -77,20 +79,36 @@ export async function createUser(
   password: string,
   name: string,
   role: "professor" | "parent",
-  specialty?: string
+  specialty?: string,
+  bio?: string,
+  photo?: string
 ): Promise<User> {
   const res  = await fetch("/api/create-user", {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ email, password, name, role, specialty }),
+    body:    JSON.stringify({ email, password, name, role, specialty, bio, photo }),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error ?? "Failed to create user");
-  return { id: json.user.id, name: json.user.name, email, password, role, specialty };
+  return { id: json.user.id, name: json.user.name, email, password, role, specialty, bio, photo };
+}
+
+export async function updateProfile(
+  id: string,
+  patch: { name?: string; specialty?: string | null; bio?: string | null; photo?: string | null }
+): Promise<void> {
+  const { error } = await supabase.from("profiles").update(patch).eq("id", id);
+  if (error) { console.error("[updateProfile]", error.message); throw new Error(error.message); }
 }
 
 export async function deleteProfile(id: string): Promise<void> {
-  await supabase.from("profiles").delete().eq("id", id);
+  const res  = await fetch("/api/delete-user", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ id }),
+  });
+  const json = await res.json();
+  if (!res.ok) { console.error("[deleteProfile]", json.error); throw new Error(json.error ?? "Failed to delete user"); }
 }
 
 // ── STUDENTS ─────────────────────────────────────────────────
@@ -128,16 +146,18 @@ export async function updateStudent(
   id: string,
   patch: { name?: string; age?: number; level?: Student["level"]; photo?: string | null }
 ): Promise<void> {
-  await supabase.from("students").update({
-    name:  patch.name,
-    age:   patch.age,
-    level: patch.level,
-    photo: patch.photo ?? null,
-  }).eq("id", id);
+  const update: Record<string, unknown> = {};
+  if (patch.name  !== undefined) update.name  = patch.name;
+  if (patch.age   !== undefined) update.age   = patch.age;
+  if (patch.level !== undefined) update.level = patch.level;
+  if (patch.photo !== undefined) update.photo = patch.photo;
+  const { error } = await supabase.from("students").update(update).eq("id", id);
+  if (error) { console.error("[updateStudent]", error.message); throw new Error(error.message); }
 }
 
 export async function deleteStudent(id: string): Promise<void> {
-  await supabase.from("students").delete().eq("id", id);
+  const { error } = await supabase.from("students").delete().eq("id", id);
+  if (error) { console.error("[deleteStudent]", error.message); throw new Error(error.message); }
 }
 
 // ── SESSIONS ─────────────────────────────────────────────────

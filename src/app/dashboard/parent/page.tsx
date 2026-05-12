@@ -112,7 +112,7 @@ function lastDiscipline(sessions: Session[]): Discipline | null {
 const RANK_MEDALS: Record<1 | 2 | 3, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
 export default function ParentDashboard() {
-  const { user, logout } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const { lang, dir, setLang } = useLanguage();
   const T = t[lang];
   const router = useRouter();
@@ -129,6 +129,7 @@ export default function ParentDashboard() {
   const [examSubmitErr, setExamSubmitErr] = useState("");
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) { router.push("/login"); return; }
     if (user.role !== "parent") { router.push("/login"); return; }
     (async () => {
@@ -150,7 +151,7 @@ export default function ParentDashboard() {
       setExams(exs);
       setExamResults(results);
     })();
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
   async function handleSubmitExam() {
     if (!takingExam) return;
@@ -328,14 +329,6 @@ export default function ParentDashboard() {
                         </div>
                       </div>
 
-                      {/* Memorization map (read-only) */}
-                      {child.memorization && Object.keys(child.memorization).length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-semibold text-[#1a1a1a] mb-3">{T.memoMapTitle}</h4>
-                          <MemoMap value={child.memorization} editable={false} lang={lang} />
-                        </div>
-                      )}
-
                       {/* ── EXAMS ── */}
                       {(() => {
                         const available = exams.filter((ex) => !examResults.some((r) => r.examId === ex.id && r.studentId === child.id));
@@ -466,6 +459,14 @@ export default function ParentDashboard() {
                               </div>
                             ))}
                           </div>
+                        </div>
+                      )}
+
+                      {/* Memorization map (read-only) — at the bottom */}
+                      {child.memorization && Object.keys(child.memorization).length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-[#1a1a1a] mb-3">{T.memoMapTitle}</h4>
+                          <MemoMap value={child.memorization} editable={false} lang={lang} />
                         </div>
                       )}
                     </div>

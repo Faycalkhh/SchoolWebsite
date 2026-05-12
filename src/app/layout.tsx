@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo, Playfair_Display } from "next/font/google";
 import Providers from "@/components/Providers";
 import ServiceWorker from "@/components/ServiceWorker";
@@ -20,6 +20,13 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "مدرسة نور القرآن | École Nur Al-Quran",
   description: "تعليم قرآني متميز — Enseignement coranique d'excellence.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#2d6a4f",
 };
 
 export default function RootLayout({
