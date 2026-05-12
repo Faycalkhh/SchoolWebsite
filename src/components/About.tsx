@@ -17,9 +17,10 @@ export default function About() {
             <div className="relative">
               <div className="relative rounded-3xl overflow-hidden shadow-2xl aspect-[4/3] sm:aspect-[3/4]">
                 <Image
-                  src="https://images.unsplash.com/photo-1577896851231-70ef18881754?w=800&q=80"
+                  src="/Aboutimg.png"
                   alt="Students learning Quran"
                   fill
+                  sizes="(min-width: 1024px) 40vw, 100vw"
                   className="object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1a3a2c]/40 to-transparent" />

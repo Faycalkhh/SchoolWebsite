@@ -60,6 +60,8 @@ const t = {
     parentHint: "إذا لم يكن لولي الأمر حساب، سيتم إنشاؤه تلقائياً (كلمة المرور الافتراضية: parent123).",
     photoUpload: "صورة الطالب",
     save: "حفظ",
+    saving: "جارٍ الحفظ...",
+    deleting: "جارٍ الحذف...",
     cancel: "إلغاء",
     noStudents: "لم يُعثر على طالب.",
     parentLabel: "ولي الأمر:",
@@ -179,6 +181,8 @@ const t = {
     parentHint: "Si ce parent n'a pas encore de compte, un compte sera créé automatiquement (mot de passe par défaut : parent123).",
     photoUpload: "Photo de l'élève",
     save: "Enregistrer",
+    saving: "Enregistrement...",
+    deleting: "Suppression...",
     cancel: "Annuler",
     noStudents: "Aucun élève trouvé.",
     parentLabel: "Parent :",
@@ -291,6 +295,23 @@ async function resizeToBase64(file: File): Promise<string> {
       ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 200, 200);
       URL.revokeObjectURL(url);
       resolve(canvas.toDataURL("image/jpeg", 0.7));
+    };
+    img.src = url;
+  });
+}
+
+async function resizeProfPhoto(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 600; canvas.height = 600;
+      const ctx = canvas.getContext("2d")!;
+      const size = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 600, 600);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
     };
     img.src = url;
   });
@@ -739,7 +760,7 @@ export default function ProfessorDashboard() {
                 </div>
                 {studentErr && <p className="text-red-500 text-sm mt-3">{studentErr}</p>}
                 <div className="flex gap-3 mt-5">
-                  <button onClick={handleAddStudent} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors">{T.save}</button>
+                  <button onClick={handleAddStudent} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
                   <button onClick={() => setShowAddStudent(false)} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
                 </div>
               </div>
@@ -762,7 +783,7 @@ export default function ProfessorDashboard() {
                           <div className="p-5 flex flex-wrap items-center justify-between gap-3 bg-red-50">
                             <p className="text-sm font-medium text-red-700">{T.confirmDelete}</p>
                             <div className="flex gap-2">
-                              <button onClick={() => handleDeleteStudent(student.id)} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">{T.confirmYes}</button>
+                              <button onClick={() => handleDeleteStudent(student.id)} disabled={submitting} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.deleting : T.confirmYes}</button>
                               <button onClick={() => setDeletingStudentId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-white transition-colors">{T.cancel}</button>
                             </div>
                           </div>
@@ -822,7 +843,7 @@ export default function ProfessorDashboard() {
                                       </div>
                                     </div>
                                     <div className="flex gap-3 mt-5">
-                                      <button onClick={handleEditStudent} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors">{T.save}</button>
+                                      <button onClick={handleEditStudent} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
                                       <button onClick={() => setEditingStudentId(null)} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
                                     </div>
                                   </div>
@@ -894,7 +915,7 @@ export default function ProfessorDashboard() {
                                               <div className="sm:col-span-2"><label className={LABEL}>{T.fieldComment}</label><textarea rows={3} className={`${INPUT} resize-none`} placeholder={T.commentPh} value={sessionForm.comment} onChange={(e) => setSessionForm({ ...sessionForm, comment: e.target.value })} /></div>
                                             </div>
                                             <div className="flex gap-2 mt-4">
-                                              <button onClick={() => handleAddSession(student.id)} className="px-4 py-2 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] transition-colors">{T.saveSession}</button>
+                                              <button onClick={() => handleAddSession(student.id)} disabled={submitting} className="px-4 py-2 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.saveSession}</button>
                                               <button onClick={() => setShowNewSession(null)} className="px-4 py-2 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-white transition-colors">{T.cancel}</button>
                                             </div>
                                           </div>
@@ -907,8 +928,8 @@ export default function ProfessorDashboard() {
                                     ) : (
                                       <div className="space-y-4">
                                         <MemoMap value={memoEdit} editable lang={lang} onChange={(updated) => setMemoEdit(updated)} />
-                                        <button onClick={() => handleSaveMemo(student.id)} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors">
-                                          {T.memoSave}
+                                        <button onClick={() => handleSaveMemo(student.id)} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">
+                                          {submitting ? T.saving : T.memoSave}
                                         </button>
                                       </div>
                                     )}
@@ -964,12 +985,12 @@ export default function ProfessorDashboard() {
                     <label className={LABEL}>{T.photoProf}</label>
                     {profForm.photo && <img src={profForm.photo} className="w-16 h-16 rounded-full object-cover mb-2" alt="" />}
                     <input type="file" accept="image/*" className="text-xs text-[#666] file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#2d6a4f]/10 file:text-[#2d6a4f] file:font-semibold cursor-pointer"
-                      onChange={async (e) => { const f = e.target.files?.[0]; if (f) setProfForm({ ...profForm, photo: await resizeToBase64(f) }); }} />
+                      onChange={async (e) => { const f = e.target.files?.[0]; if (f) setProfForm({ ...profForm, photo: await resizeProfPhoto(f) }); }} />
                   </div>
                 </div>
                 {profErr && <p className="text-red-500 text-sm mt-3">{profErr}</p>}
                 <div className="flex gap-3 mt-5">
-                  <button onClick={handleAddProf} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors">{T.save}</button>
+                  <button onClick={handleAddProf} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
                   <button onClick={() => setShowAddProf(false)} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
                 </div>
               </div>
@@ -981,7 +1002,7 @@ export default function ProfessorDashboard() {
                     <div>
                       <p className="text-sm font-medium text-red-700 mb-3">{T.confirmDelete}</p>
                       <div className="flex gap-2">
-                        <button onClick={() => handleDeleteProf(prof.id)} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">{T.confirmYes}</button>
+                        <button onClick={() => handleDeleteProf(prof.id)} disabled={submitting} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.deleting : T.confirmYes}</button>
                         <button onClick={() => setDeletingProfId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
                       </div>
                     </div>
@@ -995,10 +1016,10 @@ export default function ProfessorDashboard() {
                         <label className={LABEL}>{T.photoProf}</label>
                         {editProfForm.photo && <img src={editProfForm.photo.startsWith("data:") ? editProfForm.photo : `data:image/jpeg;base64,${editProfForm.photo}`} className="w-14 h-14 rounded-full object-cover mb-2" alt="" />}
                         <input type="file" accept="image/*" className="text-xs text-[#666] file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#2d6a4f]/10 file:text-[#2d6a4f] file:font-semibold cursor-pointer"
-                          onChange={async (e) => { const f = e.target.files?.[0]; if (f) setEditProfForm({ ...editProfForm, photo: await resizeToBase64(f) }); }} />
+                          onChange={async (e) => { const f = e.target.files?.[0]; if (f) setEditProfForm({ ...editProfForm, photo: await resizeProfPhoto(f) }); }} />
                       </div>
                       <div className="flex gap-2 pt-2">
-                        <button onClick={handleSaveEditProf} className="px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] transition-colors">{T.save}</button>
+                        <button onClick={handleSaveEditProf} disabled={submitting} className="px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
                         <button onClick={() => setEditingProfId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
                       </div>
                     </div>
@@ -1051,7 +1072,7 @@ export default function ProfessorDashboard() {
                 </div>
               ))}
             </div>
-            <button onClick={handleSaveTop3} className="mt-6 px-5 py-2.5 rounded-xl bg-[#c9a84c] text-white text-sm font-semibold hover:bg-[#b8943e] transition-colors">{T.top3Save}</button>
+            <button onClick={handleSaveTop3} disabled={submitting} className="mt-6 px-5 py-2.5 rounded-xl bg-[#c9a84c] text-white text-sm font-semibold hover:bg-[#b8943e] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.top3Save}</button>
           </div>
         )}
 
@@ -1083,7 +1104,7 @@ export default function ProfessorDashboard() {
                 </div>
                 {annErr && <p className="text-red-500 text-sm mt-3">{annErr}</p>}
                 <div className="flex gap-3 mt-5">
-                  <button onClick={handleAddAnnouncement} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors">{T.save}</button>
+                  <button onClick={handleAddAnnouncement} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
                   <button onClick={() => setShowAddAnn(false)} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
                 </div>
               </div>
@@ -1099,7 +1120,7 @@ export default function ProfessorDashboard() {
                       <div className="p-5 flex flex-col gap-3 bg-red-50 flex-1">
                         <p className="text-sm font-medium text-red-700">{T.confirmDelete}</p>
                         <div className="flex gap-2">
-                          <button onClick={() => handleDeleteAnnouncement(ann.id)} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">{T.confirmYes}</button>
+                          <button onClick={() => handleDeleteAnnouncement(ann.id)} disabled={submitting} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.deleting : T.confirmYes}</button>
                           <button onClick={() => setDeletingAnnId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-white transition-colors">{T.cancel}</button>
                         </div>
                       </div>
@@ -1205,7 +1226,7 @@ export default function ProfessorDashboard() {
 
                 {examErr && <p className="text-red-500 text-sm mt-3">{examErr}</p>}
                 <div className="flex gap-3 mt-5">
-                  <button onClick={handleSaveExam} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors">{T.save}</button>
+                  <button onClick={handleSaveExam} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
                   <button onClick={() => setShowCreateExam(false)} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
                 </div>
               </div>
@@ -1225,7 +1246,7 @@ export default function ProfessorDashboard() {
                         <div className="p-5 flex flex-wrap items-center justify-between gap-3 bg-red-50">
                           <p className="text-sm font-medium text-red-700">{T.confirmDelete}</p>
                           <div className="flex gap-2">
-                            <button onClick={() => handleDeleteExam(exam.id)} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">{T.confirmYes}</button>
+                            <button onClick={() => handleDeleteExam(exam.id)} disabled={submitting} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.deleting : T.confirmYes}</button>
                             <button onClick={() => setDeletingExamId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-white transition-colors">{T.cancel}</button>
                           </div>
                         </div>

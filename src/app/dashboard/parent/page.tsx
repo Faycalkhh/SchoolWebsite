@@ -38,6 +38,7 @@ const t = {
     examsTakenTitle: "الاختبارات المنجزة",
     startExam: "ابدأ الاختبار",
     submitExam: "إرسال الإجابات",
+    submitting: "جارٍ الإرسال...",
     cancelExam: "إلغاء",
     errAllAnswers: "يرجى الإجابة على جميع الأسئلة.",
     questions: (n: number) => `${n} سؤال`,
@@ -76,6 +77,7 @@ const t = {
     examsTakenTitle: "Examens passés",
     startExam: "Commencer l'examen",
     submitExam: "Envoyer les réponses",
+    submitting: "Envoi en cours...",
     cancelExam: "Annuler",
     errAllAnswers: "Veuillez répondre à toutes les questions.",
     questions: (n: number) => `${n} question${n !== 1 ? "s" : ""}`,
@@ -127,6 +129,7 @@ export default function ParentDashboard() {
   const [takingExam, setTakingExam] = useState<{ examId: string; studentId: string } | null>(null);
   const [examAnswers, setExamAnswers] = useState<Record<string, string>>({});
   const [examSubmitErr, setExamSubmitErr] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -158,6 +161,7 @@ export default function ParentDashboard() {
     const exam = exams.find((e) => e.id === takingExam.examId);
     if (!exam) return;
     if (exam.questions.some((q) => !examAnswers[q.id])) { setExamSubmitErr(T.errAllAnswers); return; }
+    setSubmitting(true);
     const correct = exam.questions.filter((q) => examAnswers[q.id] === q.correctOptionId).length;
     const score = Math.round((correct / exam.questions.length) * 100);
     const result: Omit<ExamResult, "id"> = {
@@ -174,6 +178,7 @@ export default function ParentDashboard() {
     setTakingExam(null);
     setExamAnswers({});
     setExamSubmitErr("");
+    setSubmitting(false);
   }
 
   function scoreColor(score: number) {
@@ -364,7 +369,7 @@ export default function ParentDashboard() {
                                 </div>
                                 {examSubmitErr && <p className="text-red-500 text-xs mt-3">{examSubmitErr}</p>}
                                 <div className="flex gap-3 mt-5">
-                                  <button onClick={handleSubmitExam} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors">{T.submitExam}</button>
+                                  <button onClick={handleSubmitExam} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.submitting : T.submitExam}</button>
                                   <button onClick={() => { setTakingExam(null); setExamAnswers({}); setExamSubmitErr(""); }} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancelExam}</button>
                                 </div>
                               </div>
