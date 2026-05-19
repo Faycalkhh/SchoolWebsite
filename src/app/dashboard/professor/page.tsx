@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   BookOpen, LogOut, Plus, ChevronDown, ChevronUp,
   Users, GraduationCap, Search, X, CheckCircle,
-  Pencil, Trash2, ChevronLeft, ChevronRight, Trophy, Bell, ClipboardList,
+  Pencil, Trash2, ChevronLeft, ChevronRight, Trophy, Bell,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -17,12 +17,11 @@ import {
   addSession,
   getTopStudents, saveTopStudents,
   getAnnouncements, addAnnouncement, deleteAnnouncement,
-  getExams, addExam, deleteExam,
-  getExamResults, addExamResult, deleteExamResults,
+  resetPassword,
   saveMemoMap,
 } from "@/lib/store";
-import type { Student, Session, User, Discipline, Level, TopEntry, Announcement, Exam, ExamResult, QCMQuestion } from "@/lib/types";
-import type { SurahStatus } from "@/lib/quran";
+import type { Student, Session, User, Discipline, Level, TopEntry, Announcement } from "@/lib/types";
+import { ageFromDOB, type SurahStatus } from "@/lib/quran";
 import MemoMap from "@/components/MemoMap";
 
 const t = {
@@ -34,6 +33,15 @@ const t = {
     tabProfessors: "الأساتذة",
     tabTop3: "أفضل 3",
     tabAnnouncements: "الإعلانات",
+    tabParents: "أولياء الأمور",
+    parentsNoneYet: "لا يوجد أولياء أمور بعد.",
+    childrenCount: (n: number) => `${n} ${n === 1 ? "طفل" : "أطفال"}`,
+    resetPasswordTitle: "إعادة تعيين كلمة المرور",
+    newPasswordPh: "كلمة المرور الجديدة (٦ أحرف على الأقل)",
+    resetPasswordBtn: "إعادة تعيين",
+    resetPasswordDone: "تم تحديث كلمة المرور بنجاح.",
+    addParent: "إضافة ولي أمر",
+    newParent: "ولي أمر جديد",
     toastSession: "تم تسجيل الحصة بنجاح.",
     toastStudent: "تم إضافة الطالب بنجاح.",
     toastProf: "تم إضافة الأستاذ بنجاح.",
@@ -54,6 +62,8 @@ const t = {
     deleteLabel: "حذف",
     fieldName: "الاسم الكامل *",
     fieldAge: "العمر",
+    fieldDOB: "تاريخ الميلاد",
+    computedAge: (n: number) => `العمر: ${n} سنة`,
     fieldLevel: "المستوى",
     fieldParentName: "اسم ولي الأمر *",
     fieldParentEmail: "البريد الإلكتروني لولي الأمر *",
@@ -86,6 +96,7 @@ const t = {
     memoPh: "مثال: الفاتحة (1-7)",
     fieldComment: "ملاحظة الأستاذ",
     commentPh: "الملاحظات، نقاط التحسين...",
+    absenceReasonPh: "سبب الغياب أو ملاحظات...",
     saveSession: "تسجيل الحصة",
     addSession: "إضافة حصة",
     memoSave: "حفظ التقدم",
@@ -155,6 +166,15 @@ const t = {
     tabProfessors: "Professeurs",
     tabTop3: "Top 3",
     tabAnnouncements: "Annonces",
+    tabParents: "Parents",
+    parentsNoneYet: "Aucun parent pour le moment.",
+    childrenCount: (n: number) => `${n} ${n === 1 ? "enfant" : "enfants"}`,
+    resetPasswordTitle: "Réinitialiser le mot de passe",
+    newPasswordPh: "Nouveau mot de passe (6 caractères min)",
+    resetPasswordBtn: "Réinitialiser",
+    resetPasswordDone: "Mot de passe mis à jour avec succès.",
+    addParent: "Ajouter un parent",
+    newParent: "Nouveau parent",
     toastSession: "Séance enregistrée avec succès.",
     toastStudent: "Élève ajouté avec succès.",
     toastProf: "Professeur ajouté avec succès.",
@@ -175,6 +195,8 @@ const t = {
     deleteLabel: "Supprimer",
     fieldName: "Nom complet *",
     fieldAge: "Âge",
+    fieldDOB: "Date de naissance",
+    computedAge: (n: number) => `Âge: ${n} ans`,
     fieldLevel: "Niveau",
     fieldParentName: "Nom du parent *",
     fieldParentEmail: "Email du parent *",
@@ -207,6 +229,7 @@ const t = {
     memoPh: "Ex : Al-Fatiha (1-7)",
     fieldComment: "Commentaire du professeur",
     commentPh: "Observations, points à améliorer...",
+    absenceReasonPh: "Raison de l'absence ou remarques...",
     saveSession: "Enregistrer la séance",
     addSession: "Ajouter une séance",
     memoSave: "Enregistrer la progression",
@@ -344,29 +367,17 @@ function initials(name: string) {
 }
 
 const emptySession = () => ({ date: new Date().toISOString().split("T")[0], present: true, discipline: "bon" as Discipline, memorization: "", comment: "" });
-const emptyStudent = () => ({ name: "", age: "", level: "Débutant" as Level, parentEmail: "", parentName: "", photo: "" });
+const emptyStudent = () => ({ name: "", dateOfBirth: "", level: "Débutant" as Level, parentEmail: "", parentName: "", photo: "" });
+
+// Generates a simple 8-char password with no ambiguous chars (no 0/O/1/l/I)
+function generatePassword(): string {
+  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let pwd = "";
+  for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+  return pwd;
+}
 const emptyProf = () => ({ name: "", email: "", password: "", specialty: "", bio: "", photo: "" });
 const emptyAnn = () => ({ title: "", body: "", image: "" });
-
-const OPTION_LABELS = ["A", "B", "C", "D"];
-
-function emptyQuestion(): QCMQuestion {
-  return {
-    id: `q_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-    text: "",
-    options: OPTION_LABELS.map((l) => ({ id: l.toLowerCase(), text: "" })),
-    correctOptionId: "a",
-  };
-}
-function emptyExamDraft() {
-  return { title: "", questions: [emptyQuestion()] };
-}
-
-function scoreColor(score: number) {
-  if (score >= 70) return "text-emerald-700 bg-emerald-50 border-emerald-200";
-  if (score >= 50) return "text-amber-700 bg-amber-50 border-amber-200";
-  return "text-red-700 bg-red-50 border-red-200";
-}
 
 export default function ProfessorDashboard() {
   const { user, loading: authLoading, logout } = useAuth();
@@ -381,7 +392,7 @@ export default function ProfessorDashboard() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const [tab, setTab] = useState<"students" | "professors" | "top3" | "announcements" | "exams">("students");
+  const [tab, setTab] = useState<"students" | "professors" | "parents" | "top3" | "announcements">("students");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -401,35 +412,35 @@ export default function ProfessorDashboard() {
   const [toast, setToast] = useState("");
 
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; age: string; level: Level; photo: string }>({ name: "", age: "", level: "Débutant", photo: "" });
+  const [editForm, setEditForm] = useState<{ name: string; dateOfBirth: string; level: Level; photo: string }>({ name: "", dateOfBirth: "", level: "Débutant", photo: "" });
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
   const [deletingProfId, setDeletingProfId] = useState<string | null>(null);
   const [editingProfId, setEditingProfId] = useState<string | null>(null);
   const [editProfForm, setEditProfForm] = useState<{ name: string; specialty: string; bio: string; photo: string }>({ name: "", specialty: "", bio: "", photo: "" });
+
+  const [editingParentId, setEditingParentId] = useState<string | null>(null);
+  const [editParentForm, setEditParentForm] = useState<{ name: string }>({ name: "" });
+  const [deletingParentId, setDeletingParentId] = useState<string | null>(null);
+  const [resetPwdParentId, setResetPwdParentId] = useState<string | null>(null);
+  const [resetPwdInput, setResetPwdInput] = useState("");
+  const [resetPwdErr, setResetPwdErr] = useState("");
+  const [showAddParent, setShowAddParent] = useState(false);
+  const [parentForm, setParentForm] = useState({ name: "", email: "", password: "" });
+  const [parentErr, setParentErr] = useState("");
   const [deletingAnnId, setDeletingAnnId] = useState<string | null>(null);
 
-  const [exams, setExams] = useState<Exam[]>([]);
-  const [examResults, setExamResults] = useState<ExamResult[]>([]);
-  const [showCreateExam, setShowCreateExam] = useState(false);
-  const [examForm, setExamForm] = useState(emptyExamDraft());
-  const [examErr, setExamErr] = useState("");
-  const [expandedExamId, setExpandedExamId] = useState<string | null>(null);
-  const [deletingExamId, setDeletingExamId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.push("/login"); return; }
     if (user.role !== "professor") { router.push("/login"); return; }
     (async () => {
-      const [studs, profs, anns, exs, results, tops] = await Promise.all([
-        getStudents(), getProfiles(), getAnnouncements(),
-        getExams(), getExamResults(), getTopStudents(),
+      const [studs, profs, anns, tops] = await Promise.all([
+        getStudents(), getProfiles(), getAnnouncements(), getTopStudents(),
       ]);
       setStudents(studs);
       setProfiles(profs);
       setAnnouncements(anns);
-      setExams(exs);
-      setExamResults(results);
       setTopStudents(tops);
       const form = { r1: "", r2: "", r3: "" };
       tops.forEach((e) => {
@@ -490,10 +501,11 @@ export default function ProfessorDashboard() {
     try {
       let parent = profiles.find((u) => u.email === parentEmail && u.role === "parent");
       if (!parent) {
-        parent = await createUser(parentEmail, "parent123", parentName, "parent");
+        parent = await createUser(parentEmail, generatePassword(), parentName, "parent");
         setProfiles((prev) => [...prev, parent!]);
       }
-      const newStudent = await addStudent(name, Number(studentForm.age) || 0, studentForm.level, parent.id, studentForm.photo || undefined);
+      const computedAge = ageFromDOB(studentForm.dateOfBirth) ?? 0;
+      const newStudent = await addStudent(name, computedAge, studentForm.level, parent.id, studentForm.photo || undefined, studentForm.dateOfBirth || undefined);
       setStudents((prev) => [...prev, newStudent]);
       setStudentForm(emptyStudent()); setShowAddStudent(false);
       flash(T.toastStudent);
@@ -506,9 +518,10 @@ export default function ProfessorDashboard() {
   async function handleEditStudent() {
     if (!editingStudentId) return;
     setSubmitting(true);
-    await updateStudent(editingStudentId, { name: editForm.name, age: Number(editForm.age) || 0, level: editForm.level, photo: editForm.photo || null });
+    const computedAge = ageFromDOB(editForm.dateOfBirth) ?? 0;
+    await updateStudent(editingStudentId, { name: editForm.name, age: computedAge, level: editForm.level, photo: editForm.photo || null, dateOfBirth: editForm.dateOfBirth || null });
     setStudents((prev) => prev.map((s) =>
-      s.id !== editingStudentId ? s : { ...s, name: editForm.name, age: Number(editForm.age) || 0, level: editForm.level, photo: editForm.photo || undefined }
+      s.id !== editingStudentId ? s : { ...s, name: editForm.name, age: computedAge, dateOfBirth: editForm.dateOfBirth || undefined, level: editForm.level, photo: editForm.photo || undefined }
     ));
     setEditingStudentId(null);
     flash(T.toastEdited);
@@ -602,35 +615,61 @@ export default function ProfessorDashboard() {
     setSubmitting(false);
   }
 
-  async function handleSaveExam() {
-    setExamErr("");
-    if (!examForm.title.trim()) { setExamErr(T.errRequired); return; }
-    if (examForm.questions.length === 0) { setExamErr(T.errNoQuestions); return; }
-    if (examForm.questions.some((q) => !q.text.trim())) { setExamErr(T.errQuestionEmpty); return; }
-    if (examForm.questions.some((q) => q.options.some((o) => !o.text.trim()))) { setExamErr(T.errOptionEmpty); return; }
+  async function handleAddParent() {
+    setParentErr("");
+    const { name, email, password } = parentForm;
+    if (!name.trim() || !email.trim() || !password.trim()) { setParentErr(T.errRequired); return; }
+    if (profiles.find((u) => u.email === email)) { setParentErr(T.errEmail); return; }
     setSubmitting(true);
-    await addExam({
-      title: examForm.title,
-      professorId: user!.id,
-      date: new Date().toISOString().split("T")[0],
-      questions: examForm.questions,
-    });
-    const updatedExams = await getExams();
-    setExams(updatedExams);
-    setExamForm(emptyExamDraft()); setShowCreateExam(false);
-    flash(T.toastExam);
+    try {
+      const newParent = await createUser(email, password, name, "parent");
+      setProfiles((prev) => [...prev, newParent]);
+      setParentForm({ name: "", email: "", password: "" });
+      setShowAddParent(false);
+      flash(T.toastProf);
+    } catch {
+      setParentErr(T.errEmail);
+    }
     setSubmitting(false);
   }
 
-  async function handleDeleteExam(id: string) {
+  function startEditParent(p: User) {
+    setEditingParentId(p.id);
+    setEditParentForm({ name: p.name });
+  }
+
+  async function handleSaveEditParent() {
+    if (!editingParentId) return;
     setSubmitting(true);
-    await deleteExamResults(id);
-    await deleteExam(id);
-    setExams((prev) => prev.filter((e) => e.id !== id));
-    setExamResults((prev) => prev.filter((r) => r.examId !== id));
-    setDeletingExamId(null);
-    if (expandedExamId === id) setExpandedExamId(null);
+    await updateProfile(editingParentId, { name: editParentForm.name });
+    setProfiles((prev) => prev.map((p) => p.id !== editingParentId ? p : { ...p, name: editParentForm.name }));
+    setEditingParentId(null);
+    flash(T.toastEdited);
+    setSubmitting(false);
+  }
+
+  async function handleDeleteParent(id: string) {
+    setSubmitting(true);
+    await deleteProfile(id);
+    setProfiles((prev) => prev.filter((u) => u.id !== id));
+    setStudents((prev) => prev.filter((s) => s.parentId !== id));
+    setDeletingParentId(null);
     flash(T.toastDeleted);
+    setSubmitting(false);
+  }
+
+  async function handleResetPwd(id: string) {
+    setResetPwdErr("");
+    if (resetPwdInput.length < 6) { setResetPwdErr(T.errRequired); return; }
+    setSubmitting(true);
+    try {
+      await resetPassword(id, resetPwdInput);
+      setResetPwdParentId(null);
+      setResetPwdInput("");
+      flash(T.resetPasswordDone);
+    } catch (e) {
+      setResetPwdErr((e as Error).message);
+    }
     setSubmitting(false);
   }
 
@@ -647,8 +686,22 @@ export default function ProfessorDashboard() {
   }
 
   const professors = profiles.filter((u) => u.role === "professor");
+  const parents = profiles.filter((u) => u.role === "parent");
   const isAdmin = user?.email === "prof@nur.com";
-  const filtered = students.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = students
+    .filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
+    .slice()
+    .sort((a, b) => {
+      // Students who attended most recently appear first.
+      // A student's "last attendance" = the most recent session with present=true.
+      // Students with no presence go to the bottom.
+      const lastAttendA = a.sessions.find((s) => s.present)?.date ?? "";
+      const lastAttendB = b.sessions.find((s) => s.present)?.date ?? "";
+      if (lastAttendA === lastAttendB) return a.name.localeCompare(b.name);
+      if (!lastAttendA) return 1;
+      if (!lastAttendB) return -1;
+      return lastAttendB.localeCompare(lastAttendA);
+    });
   const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const getParentName = (parentId: string) => profiles.find((u) => u.id === parentId)?.name ?? "—";
@@ -658,9 +711,9 @@ export default function ProfessorDashboard() {
   const tabConfig = [
     { key: "students" as const,      label: T.tabStudents,      icon: <Users size={14} />,         count: students.length },
     { key: "professors" as const,    label: T.tabProfessors,    icon: <GraduationCap size={14} />, count: professors.length },
+    { key: "parents" as const,       label: T.tabParents,       icon: <Users size={14} />,         count: parents.length },
     { key: "top3" as const,          label: T.tabTop3,          icon: <Trophy size={14} />,        count: topStudents.length },
     { key: "announcements" as const, label: T.tabAnnouncements, icon: <Bell size={14} />,          count: announcements.length },
-    { key: "exams" as const,         label: T.tabExams,         icon: <ClipboardList size={14} />, count: exams.length },
   ];
 
   return (
@@ -738,7 +791,13 @@ export default function ProfessorDashboard() {
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div><label className={LABEL}>{T.fieldName}</label><input className={INPUT} placeholder="Yusuf Ahmed" value={studentForm.name} onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })} /></div>
-                  <div><label className={LABEL}>{T.fieldAge}</label><input type="number" className={INPUT} placeholder="10" min="3" max="99" value={studentForm.age} onChange={(e) => setStudentForm({ ...studentForm, age: e.target.value })} /></div>
+                  <div>
+                    <label className={LABEL}>{T.fieldDOB}</label>
+                    <input type="date" className={INPUT} value={studentForm.dateOfBirth} onChange={(e) => setStudentForm({ ...studentForm, dateOfBirth: e.target.value })} />
+                    {ageFromDOB(studentForm.dateOfBirth) !== null && (
+                      <p className="text-xs text-[#888] mt-1">{T.computedAge(ageFromDOB(studentForm.dateOfBirth)!)}</p>
+                    )}
+                  </div>
                   <div>
                     <label className={LABEL}>{T.fieldLevel}</label>
                     <select className={INPUT} value={studentForm.level} onChange={(e) => setStudentForm({ ...studentForm, level: e.target.value as Level })}>
@@ -798,7 +857,7 @@ export default function ProfessorDashboard() {
                                   <div className="font-semibold text-[#1a1a1a] text-sm truncate">{student.name}</div>
                                   <div className="text-xs text-[#aaa] mt-0.5 truncate">
                                     {T.levels[student.level as Level] ?? student.level}
-                                    {student.age > 0 ? ` · ${student.age} ${T.ageSuffix}` : ""}
+                                    {(() => { const a = ageFromDOB(student.dateOfBirth) ?? student.age; return a > 0 ? ` · ${a} ${T.ageSuffix}` : ""; })()}
                                     {" · "}{T.parentLabel} {getParentName(student.parentId)}
                                   </div>
                                 </div>
@@ -810,7 +869,7 @@ export default function ProfessorDashboard() {
                                   <span className="text-[#aaa]">{T.attendanceLabel} {attendanceRate(student.sessions)}</span>
                                   {last && <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${DISC_CLS[last.discipline]}`}>{T.disciplines[last.discipline]}</span>}
                                 </div>
-                                <button onClick={(e) => { e.stopPropagation(); if (isEditing) { setEditingStudentId(null); } else { setEditingStudentId(student.id); setExpandedId(student.id); setInnerTab("sessions"); setShowNewSession(null); setEditForm({ name: student.name, age: String(student.age), level: student.level, photo: student.photo || "" }); } }}
+                                <button onClick={(e) => { e.stopPropagation(); if (isEditing) { setEditingStudentId(null); } else { setEditingStudentId(student.id); setExpandedId(student.id); setInnerTab("sessions"); setShowNewSession(null); setEditForm({ name: student.name, dateOfBirth: student.dateOfBirth || "", level: student.level, photo: student.photo || "" }); } }}
                                   className={`p-1.5 rounded-lg transition-colors ${isEditing ? "bg-[#2d6a4f]/10 text-[#2d6a4f]" : "text-[#bbb] hover:text-[#2d6a4f] hover:bg-[#2d6a4f]/10"}`} title={T.editLabel}>
                                   <Pencil size={13} />
                                 </button>
@@ -828,7 +887,13 @@ export default function ProfessorDashboard() {
                                     <h4 className="text-sm font-semibold text-[#1a1a1a] mb-4">{T.editTitle}</h4>
                                     <div className="grid sm:grid-cols-2 gap-4">
                                       <div><label className={LABEL}>{T.fieldName}</label><input className={INPUT} value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
-                                      <div><label className={LABEL}>{T.fieldAge}</label><input type="number" className={INPUT} min="3" max="99" value={editForm.age} onChange={(e) => setEditForm({ ...editForm, age: e.target.value })} /></div>
+                                      <div>
+                                        <label className={LABEL}>{T.fieldDOB}</label>
+                                        <input type="date" className={INPUT} value={editForm.dateOfBirth} onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })} />
+                                        {ageFromDOB(editForm.dateOfBirth) !== null && (
+                                          <p className="text-xs text-[#888] mt-1">{T.computedAge(ageFromDOB(editForm.dateOfBirth)!)}</p>
+                                        )}
+                                      </div>
                                       <div>
                                         <label className={LABEL}>{T.fieldLevel}</label>
                                         <select className={INPUT} value={editForm.level} onChange={(e) => setEditForm({ ...editForm, level: e.target.value as Level })}>
@@ -905,14 +970,18 @@ export default function ProfessorDashboard() {
                                                   <button type="button" onClick={() => setSessionForm({ ...sessionForm, present: false })} className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors border ${!sessionForm.present ? "bg-red-500 text-white border-red-500" : "bg-white border-[#e8dfc8] text-[#666] hover:bg-[#f5f0e8]"}`}>{T.absent}</button>
                                                 </div>
                                               </div>
-                                              <div>
-                                                <label className={LABEL}>{T.fieldDiscipline}</label>
-                                                <select className={INPUT} value={sessionForm.discipline} onChange={(e) => setSessionForm({ ...sessionForm, discipline: e.target.value as Discipline })}>
-                                                  {(["excellent", "bon", "passable", "insuffisant"] as Discipline[]).map((d) => <option key={d} value={d}>{T.disciplines[d]}</option>)}
-                                                </select>
-                                              </div>
-                                              <div><label className={LABEL}>{T.fieldMemo}</label><input className={INPUT} placeholder={T.memoPh} value={sessionForm.memorization} onChange={(e) => setSessionForm({ ...sessionForm, memorization: e.target.value })} /></div>
-                                              <div className="sm:col-span-2"><label className={LABEL}>{T.fieldComment}</label><textarea rows={3} className={`${INPUT} resize-none`} placeholder={T.commentPh} value={sessionForm.comment} onChange={(e) => setSessionForm({ ...sessionForm, comment: e.target.value })} /></div>
+                                              {sessionForm.present && (
+                                                <>
+                                                  <div>
+                                                    <label className={LABEL}>{T.fieldDiscipline}</label>
+                                                    <select className={INPUT} value={sessionForm.discipline} onChange={(e) => setSessionForm({ ...sessionForm, discipline: e.target.value as Discipline })}>
+                                                      {(["excellent", "bon", "passable", "insuffisant"] as Discipline[]).map((d) => <option key={d} value={d}>{T.disciplines[d]}</option>)}
+                                                    </select>
+                                                  </div>
+                                                  <div><label className={LABEL}>{T.fieldMemo}</label><input className={INPUT} placeholder={T.memoPh} value={sessionForm.memorization} onChange={(e) => setSessionForm({ ...sessionForm, memorization: e.target.value })} /></div>
+                                                </>
+                                              )}
+                                              <div className="sm:col-span-2"><label className={LABEL}>{T.fieldComment}</label><textarea rows={3} className={`${INPUT} resize-none`} placeholder={sessionForm.present ? T.commentPh : T.absenceReasonPh} value={sessionForm.comment} onChange={(e) => setSessionForm({ ...sessionForm, comment: e.target.value })} /></div>
                                             </div>
                                             <div className="flex gap-2 mt-4">
                                               <button onClick={() => handleAddSession(student.id)} disabled={submitting} className="px-4 py-2 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.saveSession}</button>
@@ -1057,6 +1126,99 @@ export default function ProfessorDashboard() {
           </div>
         )}
 
+        {/* ── PARENTS TAB ── */}
+        {tab === "parents" && (
+          <div className="space-y-4">
+            {isAdmin && (
+              <div className="flex justify-end">
+                <button onClick={() => { setShowAddParent(!showAddParent); setParentErr(""); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors shadow-sm">
+                  <Plus size={15} />{T.addParent}
+                </button>
+              </div>
+            )}
+            {isAdmin && showAddParent && (
+              <div className="bg-white rounded-2xl border border-[#e8dfc8] p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="font-bold text-[#1a1a1a]">{T.newParent}</h3>
+                  <button onClick={() => setShowAddParent(false)} className="text-[#bbb] hover:text-[#555]"><X size={18} /></button>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div><label className={LABEL}>{T.fieldName}</label><input className={INPUT} value={parentForm.name} onChange={(e) => setParentForm({ ...parentForm, name: e.target.value })} /></div>
+                  <div><label className={LABEL}>{T.fieldEmail}</label><input type="email" className={INPUT} dir="ltr" value={parentForm.email} onChange={(e) => setParentForm({ ...parentForm, email: e.target.value })} /></div>
+                  <div><label className={LABEL}>{T.fieldPassword}</label><input type="password" className={INPUT} value={parentForm.password} onChange={(e) => setParentForm({ ...parentForm, password: e.target.value })} /></div>
+                </div>
+                {parentErr && <p className="text-red-500 text-sm mt-3">{parentErr}</p>}
+                <div className="flex gap-3 mt-5">
+                  <button onClick={handleAddParent} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
+                  <button onClick={() => setShowAddParent(false)} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
+                </div>
+              </div>
+            )}
+
+            {parents.length === 0 ? (
+              <div className="text-center py-20 text-[#ccc]"><Users size={44} className="mx-auto mb-3 opacity-40" /><p className="text-sm">{T.parentsNoneYet}</p></div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {parents.map((p) => {
+                  const childCount = students.filter((s) => s.parentId === p.id).length;
+                  return (
+                    <div key={p.id} className="bg-white rounded-2xl border border-[#e8dfc8] p-5 shadow-sm">
+                      {deletingParentId === p.id ? (
+                        <div>
+                          <p className="text-sm font-medium text-red-700 mb-3">{T.confirmDelete}</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleDeleteParent(p.id)} disabled={submitting} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.deleting : T.confirmYes}</button>
+                            <button onClick={() => setDeletingParentId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
+                          </div>
+                        </div>
+                      ) : resetPwdParentId === p.id ? (
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-bold text-[#1a1a1a]">{T.resetPasswordTitle}</h4>
+                          <p className="text-xs text-[#888]">{p.name} — {p.email}</p>
+                          <input type="text" className={INPUT} placeholder={T.newPasswordPh} value={resetPwdInput} onChange={(e) => setResetPwdInput(e.target.value)} />
+                          {resetPwdErr && <p className="text-red-500 text-xs">{resetPwdErr}</p>}
+                          <div className="flex gap-2">
+                            <button onClick={() => handleResetPwd(p.id)} disabled={submitting} className="px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.resetPasswordBtn}</button>
+                            <button onClick={() => { setResetPwdParentId(null); setResetPwdInput(""); setResetPwdErr(""); }} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
+                          </div>
+                        </div>
+                      ) : editingParentId === p.id ? (
+                        <div className="space-y-3">
+                          <div><label className={LABEL}>{T.fieldName}</label><input className={INPUT} value={editParentForm.name} onChange={(e) => setEditParentForm({ name: e.target.value })} /></div>
+                          <div className="flex gap-2">
+                            <button onClick={handleSaveEditParent} disabled={submitting} className="px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
+                            <button onClick={() => setEditingParentId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-11 h-11 rounded-full bg-[#c9a84c]/15 flex items-center justify-center text-[#c9a84c] font-bold text-sm shrink-0">{initials(p.name)}</div>
+                              <div className="min-w-0">
+                                <div className="font-semibold text-[#1a1a1a] text-sm truncate">{p.name}</div>
+                                <div className="text-xs text-[#aaa] truncate">{p.email}</div>
+                              </div>
+                            </div>
+                            {isAdmin && (
+                              <div className="flex gap-1 shrink-0">
+                                <button onClick={() => startEditParent(p)} className="p-1.5 rounded-lg text-[#bbb] hover:text-[#2d6a4f] hover:bg-[#2d6a4f]/10 transition-colors" title={T.editLabel}><Pencil size={14} /></button>
+                                <button onClick={() => { setResetPwdParentId(p.id); setResetPwdInput(""); setResetPwdErr(""); }} className="px-2 py-1 rounded-lg text-[10px] font-bold text-[#c9a84c] hover:bg-[#c9a84c]/10 transition-colors uppercase" title={T.resetPasswordTitle}>PWD</button>
+                                <button onClick={() => setDeletingParentId(p.id)} className="p-1.5 rounded-lg text-[#bbb] hover:text-red-500 hover:bg-red-50 transition-colors" title={T.deleteLabel}><Trash2 size={14} /></button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs text-[#888]">{T.childrenCount(childCount)}</div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── TOP 3 TAB ── */}
         {tab === "top3" && (
           <div className="bg-white rounded-2xl border border-[#e8dfc8] p-6 shadow-sm max-w-lg">
@@ -1142,172 +1304,6 @@ export default function ProfessorDashboard() {
                     )}
                   </div>
                 ))}
-              </div>
-            )}
-          </div>
-        )}
-        {/* ── EXAMS TAB ── */}
-        {tab === "exams" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-[#1a1a1a]">{T.tabExams}</h2>
-              <button onClick={() => { setShowCreateExam(!showCreateExam); setExamErr(""); setExamForm(emptyExamDraft()); }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] transition-colors shadow-sm">
-                <Plus size={15} />{T.createExam}
-              </button>
-            </div>
-
-            {showCreateExam && (
-              <div className="bg-white rounded-2xl border border-[#e8dfc8] p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="font-bold text-[#1a1a1a]">{T.newExam}</h3>
-                  <button onClick={() => setShowCreateExam(false)} className="text-[#bbb] hover:text-[#555]"><X size={18} /></button>
-                </div>
-
-                <div className="mb-5">
-                  <label className={LABEL}>{T.examFieldTitle}</label>
-                  <input className={INPUT} value={examForm.title} onChange={(e) => setExamForm({ ...examForm, title: e.target.value })} />
-                </div>
-
-                <div className="space-y-5">
-                  {examForm.questions.map((q, qi) => (
-                    <div key={q.id} className="bg-[#faf8f4] rounded-xl border border-[#e8dfc8] p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-[#2d6a4f] uppercase tracking-wider">{T.questionLabel(qi + 1)}</span>
-                        {examForm.questions.length > 1 && (
-                          <button onClick={() => setExamForm({ ...examForm, questions: examForm.questions.filter((_, i) => i !== qi) })}
-                            className="text-xs text-red-400 hover:text-red-600 font-medium">{T.removeQuestion}</button>
-                        )}
-                      </div>
-                      <div className="mb-3">
-                        <textarea rows={2} className={`${INPUT} resize-none`} placeholder={T.questionPh} value={q.text}
-                          onChange={(e) => {
-                            const qs = examForm.questions.map((x, i) => i === qi ? { ...x, text: e.target.value } : x);
-                            setExamForm({ ...examForm, questions: qs });
-                          }} />
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-2 mb-3">
-                        {q.options.map((opt, oi) => (
-                          <div key={opt.id} className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-[#2d6a4f]/10 text-[#2d6a4f] text-[10px] font-bold flex items-center justify-center shrink-0">{OPTION_LABELS[oi]}</span>
-                            <input className={`${INPUT} text-xs`} placeholder={T.optionPh} value={opt.text}
-                              onChange={(e) => {
-                                const qs = examForm.questions.map((x, i) => i !== qi ? x : {
-                                  ...x, options: x.options.map((o, j) => j === oi ? { ...o, text: e.target.value } : o),
-                                });
-                                setExamForm({ ...examForm, questions: qs });
-                              }} />
-                          </div>
-                        ))}
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">{T.correctAnswer}</label>
-                        <div className="flex gap-2 mt-1.5 flex-wrap">
-                          {q.options.map((opt, oi) => (
-                            <button key={opt.id} type="button"
-                              onClick={() => {
-                                const qs = examForm.questions.map((x, i) => i === qi ? { ...x, correctOptionId: opt.id } : x);
-                                setExamForm({ ...examForm, questions: qs });
-                              }}
-                              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors border ${q.correctOptionId === opt.id ? "bg-emerald-600 text-white border-emerald-600" : "bg-white border-[#e8dfc8] text-[#666] hover:bg-[#f5f0e8]"}`}>
-                              {OPTION_LABELS[oi]}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <button onClick={() => setExamForm({ ...examForm, questions: [...examForm.questions, emptyQuestion()] })}
-                  className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[#2d6a4f] hover:underline">
-                  <Plus size={14} />{T.addQuestion}
-                </button>
-
-                {examErr && <p className="text-red-500 text-sm mt-3">{examErr}</p>}
-                <div className="flex gap-3 mt-5">
-                  <button onClick={handleSaveExam} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
-                  <button onClick={() => setShowCreateExam(false)} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancel}</button>
-                </div>
-              </div>
-            )}
-
-            {exams.length === 0 ? (
-              <div className="text-center py-20 text-[#ccc]"><ClipboardList size={44} className="mx-auto mb-3 opacity-40" /><p className="text-sm">{T.noExams}</p></div>
-            ) : (
-              <div className="space-y-3">
-                {exams.map((exam) => {
-                  const prof = profiles.find((u) => u.id === exam.professorId);
-                  const results = examResults.filter((r) => r.examId === exam.id);
-                  const isExpanded = expandedExamId === exam.id;
-                  return (
-                    <div key={exam.id} className="bg-white rounded-2xl border border-[#e8dfc8] overflow-hidden shadow-sm">
-                      {deletingExamId === exam.id ? (
-                        <div className="p-5 flex flex-wrap items-center justify-between gap-3 bg-red-50">
-                          <p className="text-sm font-medium text-red-700">{T.confirmDelete}</p>
-                          <div className="flex gap-2">
-                            <button onClick={() => handleDeleteExam(exam.id)} disabled={submitting} className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.deleting : T.confirmYes}</button>
-                            <button onClick={() => setDeletingExamId(null)} className="px-3 py-1.5 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-white transition-colors">{T.cancel}</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div onClick={() => setExpandedExamId(isExpanded ? null : exam.id)} className="flex items-center justify-between p-4 sm:p-5 hover:bg-[#faf8f4] transition-colors cursor-pointer">
-                            <div className="min-w-0">
-                              <div className="font-semibold text-[#1a1a1a] text-sm">{exam.title}</div>
-                              <div className="text-xs text-[#aaa] mt-0.5">
-                                {T.questionsCount(exam.questions.length)} · {exam.date}
-                                {prof && <span> · {T.createdBy} {prof.name}</span>}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-xs bg-[#f0ead8] text-[#888] px-2 py-0.5 rounded-full">{results.length} {lang === "ar" ? "نتيجة" : "résultat" + (results.length !== 1 ? "s" : "")}</span>
-                              <button onClick={(e) => { e.stopPropagation(); setDeletingExamId(exam.id); }} className="p-1.5 rounded-lg text-[#bbb] hover:text-red-500 hover:bg-red-50 transition-colors" title={T.deleteLabel}><Trash2 size={13} /></button>
-                              {isExpanded ? <ChevronUp size={16} className="text-[#bbb]" /> : <ChevronDown size={16} className="text-[#bbb]" />}
-                            </div>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="border-t border-[#f0ead8] p-4 sm:p-5">
-                              <h4 className="text-sm font-semibold text-[#1a1a1a] mb-3">{T.examResults}</h4>
-                              {results.length === 0 ? (
-                                <p className="text-xs text-[#ccc]">{T.noResults}</p>
-                              ) : (
-                                <div className="overflow-x-auto rounded-xl border border-[#f0ead8]">
-                                  <table className="w-full text-xs">
-                                    <thead className="bg-[#faf8f4]">
-                                      <tr className="text-[#aaa] uppercase tracking-wider">
-                                        <th className="text-start px-4 py-2.5 font-medium">{T.resultStudent}</th>
-                                        <th className="text-start px-4 py-2.5 font-medium">{T.resultScore}</th>
-                                        <th className="text-start px-4 py-2.5 font-medium">{T.resultDate}</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-[#f5f0e8]">
-                                      {results.map((r) => {
-                                        const stu = students.find((s) => s.id === r.studentId);
-                                        return (
-                                          <tr key={r.id} className="hover:bg-[#faf8f4]">
-                                            <td className="px-4 py-3 text-[#555] font-medium">{stu?.name ?? r.studentId}</td>
-                                            <td className="px-4 py-3">
-                                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${scoreColor(r.score)}`}>
-                                                {r.correctCount}/{r.totalCount} — {r.score}%
-                                              </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-[#888]">{r.dateTaken}</td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             )}
           </div>

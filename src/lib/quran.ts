@@ -8,6 +8,18 @@ export interface Surah {
   ayahs: number;
 }
 
+// Compute age in years from a DOB string (YYYY-MM-DD). Returns null if DOB is missing/invalid.
+export function ageFromDOB(dob?: string | null): number | null {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
 export const SURAHS: Surah[] = [
   { n: 1,   ar: "الفاتحة",    fr: "Al-Fatiha",      juz: 1,  ayahs: 7   },
   { n: 2,   ar: "البقرة",     fr: "Al-Baqara",      juz: 1,  ayahs: 286 },

@@ -25,6 +25,7 @@ function mapStudent(r: Record<string, unknown>): Student {
     id:           r.id as string,
     name:         r.name as string,
     age:          r.age as number,
+    dateOfBirth:  (r.date_of_birth as string) ?? undefined,
     level:        r.level as Student["level"],
     parentId:     r.parent_id as string,
     photo:        (r.photo as string) ?? undefined,
@@ -93,6 +94,16 @@ export async function createUser(
   return { id: json.user.id, name: json.user.name, email, password, role, specialty, bio, photo };
 }
 
+export async function resetPassword(id: string, password: string): Promise<void> {
+  const res  = await fetch("/api/reset-password", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ id, password }),
+  });
+  const json = await res.json();
+  if (!res.ok) { console.error("[resetPassword]", json.error); throw new Error(json.error ?? "Failed to reset password"); }
+}
+
 export async function updateProfile(
   id: string,
   patch: { name?: string; specialty?: string | null; bio?: string | null; photo?: string | null }
@@ -132,11 +143,11 @@ export async function getStudentsByParent(parentId: string): Promise<Student[]> 
 
 export async function addStudent(
   name: string, age: number, level: Student["level"],
-  parentId: string, photo?: string
+  parentId: string, photo?: string, dateOfBirth?: string
 ): Promise<Student> {
   const { data } = await supabase
     .from("students")
-    .insert({ name, age, level, parent_id: parentId, photo: photo ?? null })
+    .insert({ name, age, level, parent_id: parentId, photo: photo ?? null, date_of_birth: dateOfBirth ?? null })
     .select("*, sessions(*), student_memorization(*)")
     .single();
   return mapStudent(data);
@@ -144,13 +155,14 @@ export async function addStudent(
 
 export async function updateStudent(
   id: string,
-  patch: { name?: string; age?: number; level?: Student["level"]; photo?: string | null }
+  patch: { name?: string; age?: number; level?: Student["level"]; photo?: string | null; dateOfBirth?: string | null }
 ): Promise<void> {
   const update: Record<string, unknown> = {};
-  if (patch.name  !== undefined) update.name  = patch.name;
-  if (patch.age   !== undefined) update.age   = patch.age;
-  if (patch.level !== undefined) update.level = patch.level;
-  if (patch.photo !== undefined) update.photo = patch.photo;
+  if (patch.name        !== undefined) update.name          = patch.name;
+  if (patch.age         !== undefined) update.age           = patch.age;
+  if (patch.level       !== undefined) update.level         = patch.level;
+  if (patch.photo       !== undefined) update.photo         = patch.photo;
+  if (patch.dateOfBirth !== undefined) update.date_of_birth = patch.dateOfBirth;
   const { error } = await supabase.from("students").update(update).eq("id", id);
   if (error) { console.error("[updateStudent]", error.message); throw new Error(error.message); }
 }

@@ -35,6 +35,7 @@ export interface Student {
   id: string;
   name: string;
   age: number;
+  dateOfBirth?: string;
   level: Level;
   parentId: string;
   sessions: Session[];

@@ -23,37 +23,81 @@ export async function sendWelcomeEmail(opts: {
   role: "professor" | "parent";
 }) {
   const loginUrl = `${APP}/login/${opts.role}`;
-  const subject  = "Bienvenue à Nur Al-Quran — أهلاً بكم في نور القرآن";
+  const subject  = "Vos identifiants — Nur Al-Quran";
 
   const html = `
-<div style="font-family:Cairo,Arial,sans-serif;max-width:560px;margin:auto;padding:32px;background:#faf8f4;color:#1a1a1a;">
-  <div style="text-align:center;padding:24px 0;border-bottom:2px solid #c9a84c;">
-    <h1 style="color:#2d6a4f;margin:0;font-size:28px;">Nur Al-Quran</h1>
-    <p style="color:#c9a84c;margin:6px 0 0;font-size:12px;letter-spacing:2px;">ÉCOLE CORANIQUE</p>
+<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;background:#faf8f4;color:#1a1a1a;">
+
+  <div style="text-align:center;padding:20px 0;border-bottom:2px solid #c9a84c;">
+    <h1 style="color:#2d6a4f;margin:0;font-size:24px;">Nur Al-Quran</h1>
   </div>
 
-  <div style="padding:32px 0;">
-    <h2 style="color:#2d6a4f;margin:0 0 16px;">Bienvenue ${opts.name}</h2>
-    <p style="line-height:1.6;color:#555;">
-      Votre compte ${opts.role === "professor" ? "professeur" : "parent"} a été créé. Voici vos identifiants :
+  <div style="padding:24px 0;">
+    <p style="font-size:16px;color:#1a1a1a;margin:0 0 8px;">Bonjour ${opts.name},</p>
+    <p style="line-height:1.5;color:#555;margin:0 0 20px;">
+      Votre compte a été créé. Voici vos identifiants :
     </p>
 
-    <div style="background:white;border:1px solid #e8dfc8;border-radius:12px;padding:20px;margin:20px 0;">
-      <div style="margin-bottom:10px;"><strong style="color:#777;font-size:12px;">EMAIL</strong><br/><span style="font-family:monospace;color:#2d6a4f;">${opts.to}</span></div>
-      <div><strong style="color:#777;font-size:12px;">MOT DE PASSE</strong><br/><span style="font-family:monospace;color:#2d6a4f;">${opts.password}</span></div>
+    <table style="width:100%;background:white;border:1px solid #e8dfc8;border-radius:10px;border-collapse:separate;border-spacing:0;">
+      <tr>
+        <td style="padding:14px 18px;border-bottom:1px solid #f0ead8;">
+          <div style="color:#999;font-size:11px;letter-spacing:1px;">EMAIL</div>
+          <div style="font-family:Consolas,monospace;color:#2d6a4f;font-size:15px;font-weight:600;margin-top:4px;">${opts.to}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:14px 18px;">
+          <div style="color:#999;font-size:11px;letter-spacing:1px;">MOT DE PASSE</div>
+          <div style="font-family:Consolas,monospace;color:#2d6a4f;font-size:18px;font-weight:700;margin-top:4px;letter-spacing:2px;">${opts.password}</div>
+        </td>
+      </tr>
+    </table>
+
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${loginUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:12px 32px;border-radius:20px;text-decoration:none;font-weight:600;font-size:14px;">Se connecter</a>
     </div>
 
-    <p style="color:#777;font-size:13px;line-height:1.6;">
-      Veuillez changer votre mot de passe lors de votre première connexion.
+    <p style="color:#888;font-size:12px;line-height:1.5;margin:20px 0 0;text-align:center;">
+      Conservez ce mot de passe en sécurité. En cas d'oubli, contactez l'administration de l'école.
     </p>
-
-    <div style="text-align:center;margin:32px 0;">
-      <a href="${loginUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:14px 32px;border-radius:24px;text-decoration:none;font-weight:600;">Se connecter</a>
-    </div>
   </div>
 
-  <div style="padding:16px 0;border-top:1px solid #e8dfc8;text-align:center;color:#999;font-size:12px;">
-    Nur Al-Quran — مدرسة نور القرآن
+  <div style="padding:14px 0;border-top:1px solid #e8dfc8;text-align:center;color:#bbb;font-size:11px;">
+    Nur Al-Quran · مدرسة نور القرآن
+  </div>
+
+</div>`;
+
+  await send(opts.to, subject, html);
+}
+
+// ── Contact form on the landing page ─────────────────────────
+export async function sendContactEmail(opts: {
+  to: string;
+  fromName: string;
+  fromEmail: string;
+  fromPhone?: string;
+  message: string;
+}) {
+  const subject = `Nouveau message de ${opts.fromName} — Nur Al-Quran`;
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;background:#faf8f4;color:#1a1a1a;">
+  <div style="text-align:center;padding:20px 0;border-bottom:2px solid #c9a84c;">
+    <h1 style="color:#2d6a4f;margin:0;font-size:22px;">Nouveau message</h1>
+    <p style="color:#c9a84c;margin:6px 0 0;font-size:11px;letter-spacing:2px;">FORMULAIRE DE CONTACT</p>
+  </div>
+
+  <div style="padding:24px 0;">
+    <table style="width:100%;background:white;border:1px solid #e8dfc8;border-radius:10px;border-collapse:separate;border-spacing:0;">
+      <tr><td style="padding:12px 16px;border-bottom:1px solid #f0ead8;width:90px;color:#999;font-size:12px;">Nom</td><td style="padding:12px 16px;border-bottom:1px solid #f0ead8;color:#1a1a1a;font-weight:600;">${opts.fromName}</td></tr>
+      <tr><td style="padding:12px 16px;border-bottom:1px solid #f0ead8;color:#999;font-size:12px;">Email</td><td style="padding:12px 16px;border-bottom:1px solid #f0ead8;color:#2d6a4f;"><a href="mailto:${opts.fromEmail}" style="color:#2d6a4f;text-decoration:none;">${opts.fromEmail}</a></td></tr>
+      ${opts.fromPhone ? `<tr><td style="padding:12px 16px;border-bottom:1px solid #f0ead8;color:#999;font-size:12px;">Téléphone</td><td style="padding:12px 16px;border-bottom:1px solid #f0ead8;color:#1a1a1a;">${opts.fromPhone}</td></tr>` : ""}
+      <tr><td style="padding:12px 16px;color:#999;font-size:12px;vertical-align:top;">Message</td><td style="padding:12px 16px;color:#1a1a1a;line-height:1.5;white-space:pre-wrap;">${opts.message.replace(/</g, "&lt;")}</td></tr>
+    </table>
+  </div>
+
+  <div style="padding:14px 0;border-top:1px solid #e8dfc8;text-align:center;color:#bbb;font-size:11px;">
+    Reçu via le formulaire de contact · Nur Al-Quran
   </div>
 </div>`;
 

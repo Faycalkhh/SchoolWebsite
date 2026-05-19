@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, LogOut, ChevronDown, ChevronUp, CheckCircle2, XCircle, Bell, ClipboardList } from "lucide-react";
+import { BookOpen, LogOut, ChevronDown, ChevronUp, CheckCircle2, XCircle, Bell } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Lang } from "@/context/LanguageContext";
-import { getStudentsByParent, getProfiles, getTopStudents, getAnnouncements, getExams, getExamResults, addExamResult } from "@/lib/store";
-import type { Student, Session, Discipline, TopEntry, Announcement, Exam, ExamResult } from "@/lib/types";
+import { getStudentsByParent, getProfiles, getTopStudents, getAnnouncements } from "@/lib/store";
+import type { Student, Session, Discipline, TopEntry, Announcement } from "@/lib/types";
+import { ageFromDOB } from "@/lib/quran";
 import MemoMap from "@/components/MemoMap";
 
 const t = {
@@ -124,25 +125,16 @@ export default function ParentDashboard() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [topStudents, setTopStudents] = useState<TopEntry[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [exams, setExams] = useState<Exam[]>([]);
-  const [examResults, setExamResults] = useState<ExamResult[]>([]);
-  const [takingExam, setTakingExam] = useState<{ examId: string; studentId: string } | null>(null);
-  const [examAnswers, setExamAnswers] = useState<Record<string, string>>({});
-  const [examSubmitErr, setExamSubmitErr] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.push("/login"); return; }
     if (user.role !== "parent") { router.push("/login"); return; }
     (async () => {
-      const [mine, profs, tops, anns, exs, results] = await Promise.all([
+      const [mine, profs, tops, anns] = await Promise.all([
         getStudentsByParent(user.id),
         getProfiles(),
         getTopStudents(),
         getAnnouncements(),
-        getExams(),
-        getExamResults(),
       ]);
       setChildren(mine);
       if (mine.length > 0) setExpandedId(mine[0].id);
@@ -151,41 +143,8 @@ export default function ParentDashboard() {
       setProfessorNames(map);
       setTopStudents(tops);
       setAnnouncements(anns);
-      setExams(exs);
-      setExamResults(results);
     })();
   }, [user, authLoading, router]);
-
-  async function handleSubmitExam() {
-    if (!takingExam) return;
-    const exam = exams.find((e) => e.id === takingExam.examId);
-    if (!exam) return;
-    if (exam.questions.some((q) => !examAnswers[q.id])) { setExamSubmitErr(T.errAllAnswers); return; }
-    setSubmitting(true);
-    const correct = exam.questions.filter((q) => examAnswers[q.id] === q.correctOptionId).length;
-    const score = Math.round((correct / exam.questions.length) * 100);
-    const result: Omit<ExamResult, "id"> = {
-      examId: exam.id,
-      studentId: takingExam.studentId,
-      answers: { ...examAnswers },
-      score,
-      correctCount: correct,
-      totalCount: exam.questions.length,
-      dateTaken: new Date().toISOString().split("T")[0],
-    };
-    await addExamResult(result);
-    setExamResults((prev) => [...prev, { ...result, id: `res_${Date.now()}` }]);
-    setTakingExam(null);
-    setExamAnswers({});
-    setExamSubmitErr("");
-    setSubmitting(false);
-  }
-
-  function scoreColor(score: number) {
-    if (score >= 70) return "text-emerald-700 bg-emerald-50 border-emerald-200";
-    if (score >= 50) return "text-amber-700 bg-amber-50 border-amber-200";
-    return "text-red-700 bg-red-50 border-red-200";
-  }
 
   if (!user) return null;
 
@@ -292,7 +251,7 @@ export default function ParentDashboard() {
                           )}
                         </div>
                         <div className="text-xs text-[#aaa] mt-0.5">
-                          {levelLabel}{child.age > 0 ? ` · ${child.age} ${T.ageSuffix}` : ""}
+                          {levelLabel}{(() => { const a = ageFromDOB(child.dateOfBirth) ?? child.age; return a > 0 ? ` · ${a} ${T.ageSuffix}` : ""; })()}
                         </div>
                       </div>
                     </div>
@@ -334,102 +293,6 @@ export default function ParentDashboard() {
                         </div>
                       </div>
 
-                      {/* ── EXAMS ── */}
-                      {(() => {
-                        const available = exams.filter((ex) => !examResults.some((r) => r.examId === ex.id && r.studentId === child.id));
-                        const taken = examResults.filter((r) => r.studentId === child.id);
-                        const isThisExamActive = takingExam?.studentId === child.id;
-                        const activeExam = isThisExamActive ? exams.find((e) => e.id === takingExam?.examId) : null;
-                        return (
-                          <div>
-                            {/* Taking exam inline form */}
-                            {activeExam && (
-                              <div className="bg-white rounded-2xl border border-[#e8dfc8] p-5 mb-4 shadow-sm">
-                                <h4 className="text-sm font-bold text-[#1a1a1a] mb-4">{activeExam.title}</h4>
-                                <div className="space-y-5">
-                                  {activeExam.questions.map((q, qi) => (
-                                    <div key={q.id}>
-                                      <p className="text-sm font-semibold text-[#333] mb-2">{qi + 1}. {q.text}</p>
-                                      <div className="space-y-2">
-                                        {q.options.map((opt, oi) => {
-                                          const labels = ["A", "B", "C", "D"];
-                                          const selected = examAnswers[q.id] === opt.id;
-                                          return (
-                                            <button key={opt.id} type="button"
-                                              onClick={() => { setExamAnswers({ ...examAnswers, [q.id]: opt.id }); setExamSubmitErr(""); }}
-                                              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm text-start transition-colors ${selected ? "bg-[#2d6a4f] text-white border-[#2d6a4f]" : "bg-[#faf8f4] border-[#e8dfc8] text-[#444] hover:border-[#2d6a4f]/40"}`}>
-                                              <span className={`w-6 h-6 rounded-full shrink-0 text-xs font-bold flex items-center justify-center ${selected ? "bg-white/20 text-white" : "bg-[#2d6a4f]/10 text-[#2d6a4f]"}`}>{labels[oi]}</span>
-                                              {opt.text}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                                {examSubmitErr && <p className="text-red-500 text-xs mt-3">{examSubmitErr}</p>}
-                                <div className="flex gap-3 mt-5">
-                                  <button onClick={handleSubmitExam} disabled={submitting} className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] text-white text-sm font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.submitting : T.submitExam}</button>
-                                  <button onClick={() => { setTakingExam(null); setExamAnswers({}); setExamSubmitErr(""); }} className="px-5 py-2.5 rounded-xl border border-[#e8dfc8] text-[#666] text-sm hover:bg-[#f5f0e8] transition-colors">{T.cancelExam}</button>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Available exams */}
-                            {!activeExam && (
-                              <div className="mb-4">
-                                <div className="flex items-center gap-2 mb-3">
-                                  <ClipboardList size={14} className="text-[#2d6a4f]" />
-                                  <h4 className="text-sm font-semibold text-[#1a1a1a]">{T.examsTitle}</h4>
-                                </div>
-                                {available.length === 0 ? (
-                                  <p className="text-xs text-[#ccc]">{T.noExams}</p>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {available.map((ex) => (
-                                      <div key={ex.id} className="flex items-center justify-between bg-[#faf8f4] rounded-xl border border-[#e8dfc8] px-4 py-3">
-                                        <div>
-                                          <div className="text-sm font-semibold text-[#1a1a1a]">{ex.title}</div>
-                                          <div className="text-xs text-[#aaa] mt-0.5">{T.questions(ex.questions.length)} · {ex.date}</div>
-                                        </div>
-                                        <button
-                                          onClick={() => { setTakingExam({ examId: ex.id, studentId: child.id }); setExamAnswers({}); setExamSubmitErr(""); }}
-                                          className="px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] transition-colors whitespace-nowrap ms-3">
-                                          {T.startExam}
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Taken exams */}
-                            {taken.length > 0 && !activeExam && (
-                              <div className="mb-4">
-                                <h4 className="text-sm font-semibold text-[#1a1a1a] mb-3">{T.examsTakenTitle}</h4>
-                                <div className="space-y-2">
-                                  {taken.map((r) => {
-                                    const ex = exams.find((e) => e.id === r.examId);
-                                    return (
-                                      <div key={r.id} className="flex items-center justify-between bg-[#faf8f4] rounded-xl border border-[#e8dfc8] px-4 py-3">
-                                        <div>
-                                          <div className="text-sm font-semibold text-[#1a1a1a]">{ex?.title ?? r.examId}</div>
-                                          <div className="text-xs text-[#aaa] mt-0.5">{r.dateTaken}</div>
-                                        </div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ms-3 ${scoreColor(r.score)}`}>
-                                          {r.correctCount}/{r.totalCount} — {r.score}%
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-
                       {/* Session history */}
                       {child.sessions.length === 0 ? (
                         <p className="text-sm text-[#ccc] text-center py-6">{T.noSessions}</p>
@@ -444,9 +307,11 @@ export default function ParentDashboard() {
                                   <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${s.present ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-red-700 bg-red-50 border-red-200"}`}>
                                     {s.present ? <><CheckCircle2 size={11} />{T.present}</> : <><XCircle size={11} />{T.absent}</>}
                                   </span>
-                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${DISC_CLS[s.discipline]}`}>
-                                    {T.disciplines[s.discipline]}
-                                  </span>
+                                  {s.present && (
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${DISC_CLS[s.discipline]}`}>
+                                      {T.disciplines[s.discipline]}
+                                    </span>
+                                  )}
                                   {professorNames[s.professorId] && (
                                     <span className="text-xs text-[#aaa]">— {professorNames[s.professorId]}</span>
                                   )}
