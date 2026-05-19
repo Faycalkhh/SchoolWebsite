@@ -1160,7 +1160,8 @@ export default function ProfessorDashboard() {
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {parents.map((p) => {
-                  const childCount = students.filter((s) => s.parentId === p.id).length;
+                  const myChildren = students.filter((s) => s.parentId === p.id);
+                  const childCount = myChildren.length;
                   return (
                     <div key={p.id} className="bg-white rounded-2xl border border-[#e8dfc8] p-5 shadow-sm">
                       {deletingParentId === p.id ? (
@@ -1208,7 +1209,24 @@ export default function ProfessorDashboard() {
                               </div>
                             )}
                           </div>
-                          <div className="text-xs text-[#888]">{T.childrenCount(childCount)}</div>
+                          <div className="text-xs text-[#888] mb-2">{T.childrenCount(childCount)}</div>
+                          {myChildren.length > 0 && (
+                            <div className="space-y-1.5 pt-2 border-t border-[#f0ead8]">
+                              {myChildren.map((c) => (
+                                <div key={c.id} className="flex items-center gap-2">
+                                  {c.photo ? (
+                                    <img src={c.photo.startsWith("data:") ? c.photo : `data:image/jpeg;base64,${c.photo}`} alt={c.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-[#2d6a4f]/10 flex items-center justify-center text-[#2d6a4f] text-[10px] font-bold shrink-0">{initials(c.name)}</div>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-medium text-[#444] truncate">{c.name}</div>
+                                  </div>
+                                  <span className="text-[10px] text-[#c9a84c] shrink-0">{c.level}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
