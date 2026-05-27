@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen, Eye, EyeOff, Users } from "lucide-react";
 import { signIn } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/context/LanguageContext";
 import LangToggle from "@/components/LangToggle";
 
@@ -51,6 +52,11 @@ export default function ParentLogin() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Pre-warm the Supabase project so the actual login isn't slowed by the cold start
+  useEffect(() => {
+    supabase.from("announcements").select("id").limit(1).then(() => {}, () => {});
+  }, []);
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();

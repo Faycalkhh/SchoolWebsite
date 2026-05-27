@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen, Eye, EyeOff, GraduationCap } from "lucide-react";
@@ -51,6 +52,11 @@ export default function ProfessorLogin() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Pre-warm the Supabase project so the actual login isn't slowed by the cold start
+  useEffect(() => {
+    supabase.from("announcements").select("id").limit(1).then(() => {}, () => {});
+  }, []);
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
