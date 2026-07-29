@@ -5,10 +5,10 @@ import AnimateIn from "./AnimateIn";
 import { useLanguage } from "@/context/LanguageContext";
 
 const images = [
-  "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=600&q=75",
-  "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=600&q=75",
-  "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&q=75",
-  "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=600&q=75",
+  "/Images/img1.jpeg",
+  "/Images/img2.jpeg",
+  "/Images/img3.jpg",
+  "/Images/img4.jpg",
 ];
 
 export default function Facilities() {

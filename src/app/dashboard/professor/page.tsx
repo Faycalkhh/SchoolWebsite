@@ -26,7 +26,7 @@ import MemoMap from "@/components/MemoMap";
 
 const t = {
   ar: {
-    schoolName: "نور القرآن",
+    schoolName: "القرآن لمسجد عبد القادر الياجوري",
     professor: "أستاذ",
     logout: "تسجيل الخروج",
     tabStudents: "الطلاب",
@@ -159,7 +159,7 @@ const t = {
     },
   },
   fr: {
-    schoolName: "Nur Al-Quran",
+    schoolName: "Coranique de la mosquée Abdelkader El Yajouri",
     professor: "Professeur",
     logout: "Déconnexion",
     tabStudents: "Élèves",

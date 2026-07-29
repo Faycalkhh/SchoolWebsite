@@ -18,7 +18,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "مدرسة نور القرآن | École Nur Al-Quran",
+  title: "مدرسة القرآن لمسجد عبد القادر الياجوري | École coranique de la mosquée Abdelkader El Yajouri",
   description: "تعليم قرآني متميز — Enseignement coranique d'excellence.",
 };
 

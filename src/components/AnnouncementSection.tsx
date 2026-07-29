@@ -9,11 +9,11 @@ import type { Announcement } from "@/lib/types";
 const t = {
   ar: {
     title: "الإعلانات والأخبار",
-    subtitle: "آخر الأحداث والإعلانات من مدرسة نور القرآن",
+    subtitle: "آخر الأحداث والإعلانات من المدرسة القرآنية لمسجد عبد القادر الياجوري",
   },
   fr: {
     title: "Annonces & Actualités",
-    subtitle: "Derniers événements et annonces de l'école Nur Al-Quran",
+    subtitle: "Derniers événements et annonces de l'école coranique de la mosquée Abdelkader El Yajouri",
   },
 };
 

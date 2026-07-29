@@ -42,7 +42,7 @@ export default function Navbar() {
           </div>
           <div className="leading-tight">
             <span className={`font-bold text-lg block leading-none ${scrolled ? "text-[#2d6a4f]" : "text-white"}`}>
-              {lang === "ar" ? "نور القرآن" : "Nur Al-Quran"}
+              {lang === "ar" ? " القرآن لمسجد عبد القادر الياجوري" : "coranique de la mosquée Abdelkader El Yajouri"}
             </span>
             <span className="text-[10px] tracking-widest uppercase text-[#c9a84c]">
               {lang === "ar" ? "مدرسة" : "École"}
