@@ -79,6 +79,7 @@ const fr: Translations = {
     emailLabel: "Email",
     emailValue: "info@nuralquran.edu",
     hoursLabel: "Horaires",
+    hoursValue: "Sam – Jeu : 8h – 20h",
     formName: "Nom complet",
     formNamePh: "Votre nom complet",
     formEmail: "Adresse email",
