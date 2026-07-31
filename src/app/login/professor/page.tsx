@@ -20,9 +20,6 @@ const t = {
     submit: "تسجيل الدخول",
     loading: "جارٍ الدخول...",
     error: "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
-    demoTitle: "حساب تجريبي",
-    demoEmail: "البريد:",
-    demoPass: "كلمة المرور:",
     back: "→ تغيير الملف الشخصي",
   },
   fr: {
@@ -148,17 +145,7 @@ export default function ProfessorLogin() {
             </button>
           </form>
 
-          <div className="mt-6 p-4 rounded-xl bg-[#f5f0e8] border border-[#e8dfc8]">
-            <p className="text-xs text-[#aaa] font-semibold mb-1.5">{T.demoTitle}</p>
-            <p className="text-xs text-[#666]" dir="ltr">
-              {T.demoEmail}{" "}
-              <span className="font-mono font-medium text-[#2d6a4f]">prof@nur.com</span>
-            </p>
-            <p className="text-xs text-[#666]" dir="ltr">
-              {T.demoPass}{" "}
-              <span className="font-mono font-medium text-[#2d6a4f]">prof123</span>
-            </p>
-          </div>
+          
         </div>
 
         <Link

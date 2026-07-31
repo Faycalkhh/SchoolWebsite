@@ -35,9 +35,6 @@ const t = {
     submit: "Se connecter",
     loading: "Connexion en cours...",
     error: "Email ou mot de passe incorrect.",
-    demoTitle: "Compte de démonstration",
-    demoEmail: "Email :",
-    demoPass: "Mot de passe :",
     back: "← Changer de profil",
   },
 };
@@ -148,17 +145,7 @@ export default function ParentLogin() {
             </button>
           </form>
 
-          <div className="mt-6 p-4 rounded-xl bg-[#f5f0e8] border border-[#e8dfc8]">
-            <p className="text-xs text-[#aaa] font-semibold mb-1.5">{T.demoTitle}</p>
-            <p className="text-xs text-[#666]" dir="ltr">
-              {T.demoEmail}{" "}
-              <span className="font-mono font-medium text-[#c9a84c]">parent@nur.com</span>
-            </p>
-            <p className="text-xs text-[#666]" dir="ltr">
-              {T.demoPass}{" "}
-              <span className="font-mono font-medium text-[#c9a84c]">parent123</span>
-            </p>
-          </div>
+          
         </div>
 
         <Link
