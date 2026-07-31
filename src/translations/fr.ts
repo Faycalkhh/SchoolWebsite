@@ -77,7 +77,7 @@ const fr: Translations = {
     phoneLabel: "Téléphone",
     phoneValue: "+213 659 21 45 90",
     emailLabel: "Email",
-    emailValue: "info@nuralquran.edu",
+    emailValue: "contact@el-yajouri.com",
     hoursLabel: "Horaires",
     hoursValue: "Sam – Jeu : 8h – 20h",
     formName: "Nom complet",

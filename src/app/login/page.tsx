@@ -43,7 +43,7 @@ export default function LoginSelect() {
         </div>
         <div>
           <div className="font-bold text-xl text-[#2d6a4f] leading-none">
-            {lang === "ar" ? "نور القرآن" : "Nur Al-Quran"}
+            {lang === "ar" ? "القرآن لمسجد عبد القادر الياجوري" : "coranique de la mosquée Abdelkader El Yajouri"}
           </div>
           <div className="text-[10px] text-[#c9a84c] tracking-widest uppercase mt-0.5">
             {lang === "ar" ? "مدرسة" : "École"}

@@ -84,7 +84,7 @@ export default function ProfessorLogin() {
                 <BookOpen size={18} className="text-[#c9a84c]" />
               </div>
               <span className="font-bold text-[#2d6a4f] text-lg">
-                {lang === "ar" ? "نور القرآن" : "Nur Al-Quran"}
+                {lang === "ar" ? "القرآن لمسجد عبد القادر الياجوري" : "coranique de la mosquée Abdelkader El Yajouri"}
               </span>
             </Link>
             <div className="flex items-center justify-center gap-2 mb-2">

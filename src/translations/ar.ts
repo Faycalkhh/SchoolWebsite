@@ -75,7 +75,7 @@ const ar = {
     phoneLabel: "الهاتف",
     phoneValue: "+213 659 21 45 90",
     emailLabel: "البريد الإلكتروني",
-    emailValue: "info@nuralquran.edu",
+    emailValue: "contact@el-yajouri.com",
     hoursLabel: "ساعات العمل",
     formName: "الاسم الكامل",
     formNamePh: "اسمك الكامل",
