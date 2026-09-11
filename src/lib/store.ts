@@ -4,6 +4,18 @@ import type { SurahStatus } from "./quran";
 
 // ── helpers ──────────────────────────────────────────────────
 
+/** Logs and rethrows, so callers never act on a null row from a failed write. */
+function fail(where: string, message?: string): never {
+  const msg = message ?? "Operation failed";
+  console.error(`[${where}]`, msg);
+  throw new Error(msg);
+}
+
+/** PostgREST reports an unknown RPC as PGRST202; Postgres reports 42883. */
+function isMissingFunction(error: { code?: string }): boolean {
+  return error.code === "PGRST202" || error.code === "42883";
+}
+
 function mapSession(r: Record<string, unknown>): Session {
   return {
     id:           r.id as string,
@@ -145,11 +157,12 @@ export async function addStudent(
   name: string, age: number, level: Student["level"],
   parentId: string, photo?: string, dateOfBirth?: string
 ): Promise<Student> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("students")
     .insert({ name, age, level, parent_id: parentId, photo: photo ?? null, date_of_birth: dateOfBirth ?? null })
     .select("*, sessions(*), student_memorization(*)")
     .single();
+  if (error || !data) fail("addStudent", error?.message);
   return mapStudent(data);
 }
 
@@ -179,7 +192,7 @@ export async function addSession(
   professorId: string,
   data: Omit<Session, "id" | "professorId">
 ): Promise<Session> {
-  const { data: row } = await supabase
+  const { data: row, error } = await supabase
     .from("sessions")
     .insert({
       student_id:   studentId,
@@ -192,6 +205,7 @@ export async function addSession(
     })
     .select()
     .single();
+  if (error || !row) fail("addSession", error?.message);
   return mapSession(row);
 }
 
@@ -203,11 +217,21 @@ export async function getTopStudents(): Promise<TopEntry[]> {
 }
 
 export async function saveTopStudents(entries: TopEntry[]): Promise<void> {
-  await supabase.from("top_entries").delete().neq("rank", 0);
-  if (entries.length) {
-    await supabase.from("top_entries").insert(
-      entries.map((e) => ({ rank: e.rank, student_id: e.studentId }))
-    );
+  const rows = entries.map((e) => ({ rank: e.rank, student_id: e.studentId }));
+
+  // One transaction: a failed insert rolls the delete back, so a half-saved
+  // podium can never wipe the existing one.
+  const { error } = await supabase.rpc("set_top_entries", { entries: rows });
+  if (!error) return;
+  if (!isMissingFunction(error)) fail("saveTopStudents", error.message);
+
+  // Fallback for databases where supabase/transactional_saves.sql hasn't run yet.
+  console.warn("[saveTopStudents] set_top_entries() missing — run supabase/transactional_saves.sql for a transactional save");
+  const { error: delErr } = await supabase.from("top_entries").delete().neq("rank", 0);
+  if (delErr) fail("saveTopStudents", delErr.message);
+  if (rows.length) {
+    const { error: insErr } = await supabase.from("top_entries").insert(rows);
+    if (insErr) fail("saveTopStudents", insErr.message);
   }
 }
 
@@ -228,16 +252,18 @@ export async function getAnnouncements(): Promise<Announcement[]> {
 }
 
 export async function addAnnouncement(ann: Omit<Announcement, "id">): Promise<Announcement> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("announcements")
     .insert({ title: ann.title, body: ann.body, image: ann.image ?? null, date: ann.date })
     .select()
     .single();
+  if (error || !data) fail("addAnnouncement", error?.message);
   return { id: data.id, title: data.title, body: data.body, image: data.image ?? undefined, date: data.date };
 }
 
 export async function deleteAnnouncement(id: string): Promise<void> {
-  await supabase.from("announcements").delete().eq("id", id);
+  const { error } = await supabase.from("announcements").delete().eq("id", id);
+  if (error) fail("deleteAnnouncement", error.message);
 }
 
 // ── EXAMS ─────────────────────────────────────────────────────
@@ -315,12 +341,28 @@ export async function saveMemoMap(
   studentId: string,
   memo: Record<number, SurahStatus>
 ): Promise<void> {
-  await supabase.from("student_memorization").delete().eq("student_id", studentId);
   const entries = Object.entries(memo)
     .filter(([, status]) => status !== "not_started")
-    .map(([n, status]) => ({ student_id: studentId, surah_number: Number(n), status }));
+    .map(([n, status]) => ({ surah_number: Number(n), status }));
+
+  // One transaction: without it, a delete that succeeds followed by a failed
+  // insert would silently erase the student's whole memorization map.
+  const { error } = await supabase.rpc("set_student_memorization", {
+    p_student_id: studentId,
+    entries,
+  });
+  if (!error) return;
+  if (!isMissingFunction(error)) fail("saveMemoMap", error.message);
+
+  // Fallback for databases where supabase/transactional_saves.sql hasn't run yet.
+  console.warn("[saveMemoMap] set_student_memorization() missing — run supabase/transactional_saves.sql for a transactional save");
+  const { error: delErr } = await supabase.from("student_memorization").delete().eq("student_id", studentId);
+  if (delErr) fail("saveMemoMap", delErr.message);
   if (entries.length) {
-    await supabase.from("student_memorization").insert(entries);
+    const { error: insErr } = await supabase
+      .from("student_memorization")
+      .insert(entries.map((e) => ({ ...e, student_id: studentId })));
+    if (insErr) fail("saveMemoMap", insErr.message);
   }
 }
 
@@ -350,14 +392,18 @@ export async function signOut(): Promise<void> {
 }
 
 export async function getSessionUser(): Promise<User | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  // getSession() reads the persisted session locally, while getUser() makes a
+  // network round-trip to revalidate it. This only drives UI state — RLS is what
+  // actually enforces access — so the local read is both correct and far faster.
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return null;
   const { data: profile } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .single();
-  if (!profile) return null;
+  if (!profile) { console.error("[getSessionUser] profile not found for uid:", user.id); return null; }
   return {
     id:        profile.id,
     name:      profile.name,

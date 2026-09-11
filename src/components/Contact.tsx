@@ -81,7 +81,7 @@ export default function Contact() {
                 allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Nur Al-Quran location"
+                title="ecole coranique de la mosquée Abdelkader El Yajouri location"
               />
             </div>
           </AnimateIn>

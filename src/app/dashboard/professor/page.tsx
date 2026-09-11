@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   BookOpen, LogOut, Plus, ChevronDown, ChevronUp,
-  Users, GraduationCap, Search, X, CheckCircle,
+  Users, GraduationCap, Search, X, CheckCircle, AlertCircle,
   Pencil, Trash2, ChevronLeft, ChevronRight, Trophy, Bell,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -52,6 +52,8 @@ const t = {
     toastMemo: "تم حفظ خريطة الحفظ بنجاح.",
     errRequired: "يرجى ملء جميع الحقول الإلزامية.",
     errEmail: "هذا البريد الإلكتروني مستخدم بالفعل.",
+    errOperation: "تعذّر إتمام العملية. تحقق من اتصالك ثم حاول مرة أخرى.",
+    errLoad: "تعذّر تحميل البيانات. حدّث الصفحة وحاول مجدداً.",
     confirmDelete: "هل أنت متأكد من الحذف؟",
     confirmYes: "نعم، احذف",
     searchPh: "البحث عن طالب...",
@@ -185,6 +187,8 @@ const t = {
     toastMemo: "Carte de mémorisation enregistrée.",
     errRequired: "Veuillez remplir tous les champs obligatoires.",
     errEmail: "Cet email est déjà utilisé.",
+    errOperation: "L'opération a échoué. Vérifiez votre connexion et réessayez.",
+    errLoad: "Échec du chargement des données. Actualisez la page et réessayez.",
     confirmDelete: "Confirmer la suppression ?",
     confirmYes: "Oui, supprimer",
     searchPh: "Rechercher un élève...",
@@ -409,7 +413,8 @@ export default function ProfessorDashboard() {
   const [studentErr, setStudentErr] = useState("");
   const [profErr, setProfErr] = useState("");
   const [annErr, setAnnErr] = useState("");
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; dateOfBirth: string; level: Level; photo: string }>({ name: "", dateOfBirth: "", level: "Débutant", photo: "" });
@@ -430,35 +435,64 @@ export default function ProfessorDashboard() {
   const [deletingAnnId, setDeletingAnnId] = useState<string | null>(null);
 
 
+  function showToast(msg: string, kind: "ok" | "err") {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, kind });
+    toastTimer.current = setTimeout(() => setToast(null), kind === "ok" ? 3500 : 6000);
+  }
+  function flash(msg: string)      { showToast(msg, "ok"); }
+  function flashError(msg: string) { showToast(msg, "err"); }
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.push("/login"); return; }
     if (user.role !== "professor") { router.push("/login"); return; }
+    let active = true;
     (async () => {
-      const [studs, profs, anns, tops] = await Promise.all([
-        getStudents(), getProfiles(), getAnnouncements(), getTopStudents(),
-      ]);
-      setStudents(studs);
-      setProfiles(profs);
-      setAnnouncements(anns);
-      setTopStudents(tops);
-      const form = { r1: "", r2: "", r3: "" };
-      tops.forEach((e) => {
-        if (e.rank === 1) form.r1 = e.studentId;
-        else if (e.rank === 2) form.r2 = e.studentId;
-        else if (e.rank === 3) form.r3 = e.studentId;
-      });
-      setTopForm(form);
+      try {
+        const [studs, profs, anns, tops] = await Promise.all([
+          getStudents(), getProfiles(), getAnnouncements(), getTopStudents(),
+        ]);
+        if (!active) return;
+        setStudents(studs);
+        setProfiles(profs);
+        setAnnouncements(anns);
+        setTopStudents(tops);
+        const form = { r1: "", r2: "", r3: "" };
+        tops.forEach((e) => {
+          if (e.rank === 1) form.r1 = e.studentId;
+          else if (e.rank === 2) form.r2 = e.studentId;
+          else if (e.rank === 3) form.r3 = e.studentId;
+        });
+        setTopForm(form);
+      } catch (e) {
+        console.error("[professor dashboard] initial load failed:", e);
+        if (active) flashError(T.errLoad);
+      }
     })();
-  }, [user, authLoading, router]);
+    return () => { active = false; };
+  }, [user, authLoading, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setPage(0); }, [search]);
 
-  async function refresh() {
-    const [studs, profs] = await Promise.all([getStudents(), getProfiles()]);
-    setStudents(studs); setProfiles(profs);
+  /**
+   * Runs a write and always clears the busy flag. Without the `finally`, a single
+   * rejected request left `submitting` stuck at true, disabling every button on
+   * the page until the user reloaded.
+   */
+  async function run(fn: () => Promise<void>, onError?: (msg: string) => void) {
+    setSubmitting(true);
+    try {
+      await fn();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[professor dashboard]", msg);
+      if (onError) onError(msg);
+      else flashError(T.errOperation);
+    } finally {
+      setSubmitting(false);
+    }
   }
-  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(""), 3500); }
 
   function expandStudent(id: string) {
     const opening = expandedId !== id;
@@ -468,37 +502,36 @@ export default function ProfessorDashboard() {
     if (editingStudentId) setEditingStudentId(null);
   }
 
-  async function handleAddSession(studentId: string) {
-    setSubmitting(true);
-    const newSession = await addSession(studentId, user!.id, sessionForm);
-    setStudents((prev) => prev.map((s) =>
-      s.id !== studentId ? s : { ...s, sessions: [newSession, ...s.sessions] }
-    ));
-    setShowNewSession(null); setSessionForm(emptySession());
-    // Fire-and-forget email to parent
-    fetch("/api/notify-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        studentId,
-        professorId:  user!.id,
-        date:         sessionForm.date,
-        present:      sessionForm.present,
-        discipline:   sessionForm.discipline,
-        memorization: sessionForm.memorization,
-        comment:      sessionForm.comment,
-      }),
-    }).catch(() => {});
-    flash(T.toastSession);
-    setSubmitting(false);
+  function handleAddSession(studentId: string) {
+    return run(async () => {
+      const newSession = await addSession(studentId, user!.id, sessionForm);
+      setStudents((prev) => prev.map((s) =>
+        s.id !== studentId ? s : { ...s, sessions: [newSession, ...s.sessions] }
+      ));
+      setShowNewSession(null); setSessionForm(emptySession());
+      // Fire-and-forget email to parent
+      fetch("/api/notify-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId,
+          professorId:  user!.id,
+          date:         sessionForm.date,
+          present:      sessionForm.present,
+          discipline:   sessionForm.discipline,
+          memorization: sessionForm.memorization,
+          comment:      sessionForm.comment,
+        }),
+      }).catch(() => {});
+      flash(T.toastSession);
+    });
   }
 
-  async function handleAddStudent() {
+  function handleAddStudent() {
     setStudentErr("");
     const { name, parentEmail, parentName } = studentForm;
     if (!name.trim() || !parentEmail.trim() || !parentName.trim()) { setStudentErr(T.errRequired); return; }
-    setSubmitting(true);
-    try {
+    return run(async () => {
       let parent = profiles.find((u) => u.email === parentEmail && u.role === "parent");
       if (!parent) {
         parent = await createUser(parentEmail, generatePassword(), parentName, "parent");
@@ -509,59 +542,53 @@ export default function ProfessorDashboard() {
       setStudents((prev) => [...prev, newStudent]);
       setStudentForm(emptyStudent()); setShowAddStudent(false);
       flash(T.toastStudent);
-    } catch {
-      setStudentErr(T.errEmail);
-    }
-    setSubmitting(false);
+    }, (msg) => setStudentErr(msg || T.errEmail));
   }
 
-  async function handleEditStudent() {
-    if (!editingStudentId) return;
-    setSubmitting(true);
-    const computedAge = ageFromDOB(editForm.dateOfBirth) ?? 0;
-    await updateStudent(editingStudentId, { name: editForm.name, age: computedAge, level: editForm.level, photo: editForm.photo || null, dateOfBirth: editForm.dateOfBirth || null });
-    setStudents((prev) => prev.map((s) =>
-      s.id !== editingStudentId ? s : { ...s, name: editForm.name, age: computedAge, dateOfBirth: editForm.dateOfBirth || undefined, level: editForm.level, photo: editForm.photo || undefined }
-    ));
-    setEditingStudentId(null);
-    flash(T.toastEdited);
-    setSubmitting(false);
+  function handleEditStudent() {
+    const id = editingStudentId;
+    if (!id) return;
+    return run(async () => {
+      const computedAge = ageFromDOB(editForm.dateOfBirth) ?? 0;
+      await updateStudent(id, { name: editForm.name, age: computedAge, level: editForm.level, photo: editForm.photo || null, dateOfBirth: editForm.dateOfBirth || null });
+      setStudents((prev) => prev.map((s) =>
+        s.id !== id ? s : { ...s, name: editForm.name, age: computedAge, dateOfBirth: editForm.dateOfBirth || undefined, level: editForm.level, photo: editForm.photo || undefined }
+      ));
+      setEditingStudentId(null);
+      flash(T.toastEdited);
+    });
   }
 
-  async function handleDeleteStudent(id: string) {
-    setSubmitting(true);
-    await deleteStudent(id);
-    setStudents((prev) => prev.filter((s) => s.id !== id));
-    setDeletingStudentId(null);
-    if (expandedId === id) setExpandedId(null);
-    if (editingStudentId === id) setEditingStudentId(null);
-    flash(T.toastDeleted);
-    setSubmitting(false);
+  function handleDeleteStudent(id: string) {
+    return run(async () => {
+      await deleteStudent(id);
+      setStudents((prev) => prev.filter((s) => s.id !== id));
+      setDeletingStudentId(null);
+      if (expandedId === id) setExpandedId(null);
+      if (editingStudentId === id) setEditingStudentId(null);
+      flash(T.toastDeleted);
+    });
   }
 
-  async function handleSaveMemo(studentId: string) {
-    setSubmitting(true);
-    await saveMemoMap(studentId, memoEdit);
-    setStudents((prev) => prev.map((s) => s.id !== studentId ? s : { ...s, memorization: memoEdit }));
-    flash(T.toastMemo);
-    setSubmitting(false);
+  function handleSaveMemo(studentId: string) {
+    return run(async () => {
+      await saveMemoMap(studentId, memoEdit);
+      setStudents((prev) => prev.map((s) => s.id !== studentId ? s : { ...s, memorization: memoEdit }));
+      flash(T.toastMemo);
+    });
   }
 
-  async function handleAddProf() {
+  function handleAddProf() {
     setProfErr("");
     const { name, email, password } = profForm;
     if (!name.trim() || !email.trim() || !password.trim()) { setProfErr(T.errRequired); return; }
     if (profiles.find((u) => u.email === email)) { setProfErr(T.errEmail); return; }
-    setSubmitting(true);
-    try {
+    return run(async () => {
       const newProf = await createUser(email, password, name, "professor", profForm.specialty || undefined, profForm.bio || undefined, profForm.photo || undefined);
       setProfiles((prev) => [...prev, newProf]);
       setProfForm(emptyProf()); setShowAddProf(false);
       flash(T.toastProf);
-    } catch {
-      setProfErr(T.errEmail);
-    }
-    setSubmitting(false);
+    }, (msg) => setProfErr(msg || T.errEmail));
   }
 
   function startEditProf(p: User) {
@@ -569,68 +596,65 @@ export default function ProfessorDashboard() {
     setEditProfForm({ name: p.name, specialty: p.specialty ?? "", bio: p.bio ?? "", photo: p.photo ?? "" });
   }
 
-  async function handleSaveEditProf() {
-    if (!editingProfId) return;
-    setSubmitting(true);
-    await updateProfile(editingProfId, {
-      name:      editProfForm.name,
-      specialty: editProfForm.specialty || null,
-      bio:       editProfForm.bio || null,
-      photo:     editProfForm.photo || null,
+  function handleSaveEditProf() {
+    const id = editingProfId;
+    if (!id) return;
+    return run(async () => {
+      await updateProfile(id, {
+        name:      editProfForm.name,
+        specialty: editProfForm.specialty || null,
+        bio:       editProfForm.bio || null,
+        photo:     editProfForm.photo || null,
+      });
+      setProfiles((prev) => prev.map((p) =>
+        p.id !== id ? p : { ...p, name: editProfForm.name, specialty: editProfForm.specialty || undefined, bio: editProfForm.bio || undefined, photo: editProfForm.photo || undefined }
+      ));
+      setEditingProfId(null);
+      flash(T.toastEdited);
     });
-    setProfiles((prev) => prev.map((p) =>
-      p.id !== editingProfId ? p : { ...p, name: editProfForm.name, specialty: editProfForm.specialty || undefined, bio: editProfForm.bio || undefined, photo: editProfForm.photo || undefined }
-    ));
-    setEditingProfId(null);
-    flash(T.toastEdited);
-    setSubmitting(false);
   }
 
-  async function handleDeleteProf(id: string) {
-    setSubmitting(true);
-    await deleteProfile(id);
-    setProfiles((prev) => prev.filter((u) => u.id !== id));
-    setDeletingProfId(null);
-    flash(T.toastDeleted);
-    setSubmitting(false);
+  function handleDeleteProf(id: string) {
+    return run(async () => {
+      await deleteProfile(id);
+      setProfiles((prev) => prev.filter((u) => u.id !== id));
+      setDeletingProfId(null);
+      flash(T.toastDeleted);
+    });
   }
 
-  async function handleAddAnnouncement() {
+  function handleAddAnnouncement() {
     setAnnErr("");
     if (!annForm.title.trim()) { setAnnErr(T.errRequired); return; }
-    setSubmitting(true);
-    const newAnn = await addAnnouncement({ title: annForm.title, body: annForm.body, image: annForm.image || undefined, date: new Date().toISOString().split("T")[0] });
-    setAnnouncements((prev) => [newAnn, ...prev]);
-    setAnnForm(emptyAnn()); setShowAddAnn(false);
-    flash(T.toastAnnouncement);
-    setSubmitting(false);
+    return run(async () => {
+      const newAnn = await addAnnouncement({ title: annForm.title, body: annForm.body, image: annForm.image || undefined, date: new Date().toISOString().split("T")[0] });
+      setAnnouncements((prev) => [newAnn, ...prev]);
+      setAnnForm(emptyAnn()); setShowAddAnn(false);
+      flash(T.toastAnnouncement);
+    }, (msg) => setAnnErr(msg || T.errOperation));
   }
 
-  async function handleDeleteAnnouncement(id: string) {
-    setSubmitting(true);
-    await deleteAnnouncement(id);
-    setAnnouncements((prev) => prev.filter((a) => a.id !== id));
-    setDeletingAnnId(null);
-    flash(T.toastDeleted);
-    setSubmitting(false);
+  function handleDeleteAnnouncement(id: string) {
+    return run(async () => {
+      await deleteAnnouncement(id);
+      setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+      setDeletingAnnId(null);
+      flash(T.toastDeleted);
+    });
   }
 
-  async function handleAddParent() {
+  function handleAddParent() {
     setParentErr("");
     const { name, email, password } = parentForm;
     if (!name.trim() || !email.trim() || !password.trim()) { setParentErr(T.errRequired); return; }
     if (profiles.find((u) => u.email === email)) { setParentErr(T.errEmail); return; }
-    setSubmitting(true);
-    try {
+    return run(async () => {
       const newParent = await createUser(email, password, name, "parent");
       setProfiles((prev) => [...prev, newParent]);
       setParentForm({ name: "", email: "", password: "" });
       setShowAddParent(false);
       flash(T.toastProf);
-    } catch {
-      setParentErr(T.errEmail);
-    }
-    setSubmitting(false);
+    }, (msg) => setParentErr(msg || T.errEmail));
   }
 
   function startEditParent(p: User) {
@@ -638,51 +662,48 @@ export default function ProfessorDashboard() {
     setEditParentForm({ name: p.name });
   }
 
-  async function handleSaveEditParent() {
-    if (!editingParentId) return;
-    setSubmitting(true);
-    await updateProfile(editingParentId, { name: editParentForm.name });
-    setProfiles((prev) => prev.map((p) => p.id !== editingParentId ? p : { ...p, name: editParentForm.name }));
-    setEditingParentId(null);
-    flash(T.toastEdited);
-    setSubmitting(false);
+  function handleSaveEditParent() {
+    const id = editingParentId;
+    if (!id) return;
+    return run(async () => {
+      await updateProfile(id, { name: editParentForm.name });
+      setProfiles((prev) => prev.map((p) => p.id !== id ? p : { ...p, name: editParentForm.name }));
+      setEditingParentId(null);
+      flash(T.toastEdited);
+    });
   }
 
-  async function handleDeleteParent(id: string) {
-    setSubmitting(true);
-    await deleteProfile(id);
-    setProfiles((prev) => prev.filter((u) => u.id !== id));
-    setStudents((prev) => prev.filter((s) => s.parentId !== id));
-    setDeletingParentId(null);
-    flash(T.toastDeleted);
-    setSubmitting(false);
+  function handleDeleteParent(id: string) {
+    return run(async () => {
+      await deleteProfile(id);
+      setProfiles((prev) => prev.filter((u) => u.id !== id));
+      setStudents((prev) => prev.filter((s) => s.parentId !== id));
+      setDeletingParentId(null);
+      flash(T.toastDeleted);
+    });
   }
 
-  async function handleResetPwd(id: string) {
+  function handleResetPwd(id: string) {
     setResetPwdErr("");
     if (resetPwdInput.length < 6) { setResetPwdErr(T.errRequired); return; }
-    setSubmitting(true);
-    try {
+    return run(async () => {
       await resetPassword(id, resetPwdInput);
       setResetPwdParentId(null);
       setResetPwdInput("");
       flash(T.resetPasswordDone);
-    } catch (e) {
-      setResetPwdErr((e as Error).message);
-    }
-    setSubmitting(false);
+    }, (msg) => setResetPwdErr(msg || T.errOperation));
   }
 
-  async function handleSaveTop3() {
+  function handleSaveTop3() {
     const entries: TopEntry[] = [];
     if (topForm.r1) entries.push({ rank: 1, studentId: topForm.r1 });
     if (topForm.r2) entries.push({ rank: 2, studentId: topForm.r2 });
     if (topForm.r3) entries.push({ rank: 3, studentId: topForm.r3 });
-    setSubmitting(true);
-    await saveTopStudents(entries);
-    setTopStudents(entries);
-    flash(T.toastTop3);
-    setSubmitting(false);
+    return run(async () => {
+      await saveTopStudents(entries);
+      setTopStudents(entries);
+      flash(T.toastTop3);
+    });
   }
 
   const professors = profiles.filter((u) => u.role === "professor");
@@ -745,15 +766,17 @@ export default function ProfessorDashboard() {
       <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
         {toast && (
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
+            className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none px-4"
             role="status"
             aria-live="polite"
           >
-            <div className="pointer-events-auto bg-white border border-emerald-200 shadow-2xl rounded-2xl px-8 py-6 flex flex-col items-center gap-3 min-w-[280px] animate-[toastIn_0.25s_ease-out]">
-              <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
-                <CheckCircle size={32} className="text-emerald-600" />
+            <div className={`pointer-events-auto bg-white border shadow-2xl rounded-2xl px-8 py-6 flex flex-col items-center gap-3 min-w-[280px] max-w-sm animate-[toastIn_0.25s_ease-out] ${toast.kind === "ok" ? "border-emerald-200" : "border-red-200"}`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center ${toast.kind === "ok" ? "bg-emerald-50" : "bg-red-50"}`}>
+                {toast.kind === "ok"
+                  ? <CheckCircle size={32} className="text-emerald-600" />
+                  : <AlertCircle size={32} className="text-red-600" />}
               </div>
-              <p className="text-emerald-700 font-semibold text-center">{toast}</p>
+              <p className={`font-semibold text-center ${toast.kind === "ok" ? "text-emerald-700" : "text-red-700"}`}>{toast.msg}</p>
             </div>
           </div>
         )}

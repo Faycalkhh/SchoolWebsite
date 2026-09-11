@@ -14,7 +14,7 @@ import MemoMap from "@/components/MemoMap";
 
 const t = {
   ar: {
-    schoolName: "نور القرآن",
+    schoolName: "القرآن لمسجد عبد القادر الياجوري",
     role: "فضاء ولي الأمر",
     logout: "تسجيل الخروج",
     greeting: (name: string) => `مرحباً، ${name} 👋`,
@@ -53,7 +53,7 @@ const t = {
     },
   },
   fr: {
-    schoolName: "Nur Al-Quran",
+    schoolName: "Coranique de la mosquée Abdelkader El Yajouri",
     role: "Espace Parent",
     logout: "Déconnexion",
     greeting: (name: string) => `Bonjour, ${name} 👋`,
@@ -129,21 +129,28 @@ export default function ParentDashboard() {
     if (authLoading) return;
     if (!user) { router.push("/login"); return; }
     if (user.role !== "parent") { router.push("/login"); return; }
+    let active = true;
     (async () => {
-      const [mine, profs, tops, anns] = await Promise.all([
-        getStudentsByParent(user.id),
-        getProfiles(),
-        getTopStudents(),
-        getAnnouncements(),
-      ]);
-      setChildren(mine);
-      if (mine.length > 0) setExpandedId(mine[0].id);
-      const map: Record<string, string> = {};
-      profs.forEach((p) => { map[p.id] = p.name; });
-      setProfessorNames(map);
-      setTopStudents(tops);
-      setAnnouncements(anns);
+      try {
+        const [mine, profs, tops, anns] = await Promise.all([
+          getStudentsByParent(user.id),
+          getProfiles(),
+          getTopStudents(),
+          getAnnouncements(),
+        ]);
+        if (!active) return;
+        setChildren(mine);
+        if (mine.length > 0) setExpandedId(mine[0].id);
+        const map: Record<string, string> = {};
+        profs.forEach((p) => { map[p.id] = p.name; });
+        setProfessorNames(map);
+        setTopStudents(tops);
+        setAnnouncements(anns);
+      } catch (e) {
+        console.error("[parent dashboard] initial load failed:", e);
+      }
     })();
+    return () => { active = false; };
   }, [user, authLoading, router]);
 
   if (!user) return null;

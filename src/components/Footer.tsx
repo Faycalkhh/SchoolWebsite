@@ -72,7 +72,7 @@ export default function Footer() {
               </div>
               <div>
                 <div className="font-bold text-lg text-white leading-none">
-                  {lang === "ar" ? "نور القرآن" : "Nur Al-Quran"}
+                  {lang === "ar" ? "القرآن لمسجد عبد القادر الياجوري" : "Coranique de la mosquée Abdelkader El Yajouri"}
                 </div>
                 <div className="text-[10px] text-[#c9a84c] tracking-widest uppercase">
                   {lang === "ar" ? "مدرسة" : "École"}
