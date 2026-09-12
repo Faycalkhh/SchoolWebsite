@@ -1,5 +1,5 @@
 -- ============================================================
---  Nur Al-Quran — Clean Seed
+--  École Coranique El-Yajouri — Clean Seed
 --  Run AFTER creating the 5 users in Supabase Dashboard.
 -- ============================================================
 

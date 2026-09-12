@@ -1,5 +1,5 @@
 -- ============================================================
---  Nur Al-Quran — Auth Repair
+--  École Coranique El-Yajouri — Auth Repair
 --  Run this AFTER manually creating the 5 users in the
 --  Supabase Dashboard (Authentication → Users → Add user).
 --  It reads their real UUIDs and wires up all FK references.

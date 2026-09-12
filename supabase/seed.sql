@@ -1,5 +1,5 @@
 -- ============================================================
---  Nur Al-Quran — Mock Seed Data
+--  École Coranique El-Yajouri — Mock Seed Data
 --  Run AFTER schema.sql in the Supabase SQL Editor
 --  Idempotent: uses ON CONFLICT DO NOTHING throughout
 -- ============================================================

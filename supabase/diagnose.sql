@@ -1,5 +1,5 @@
 -- ============================================================
---  Nur Al-Quran — Database Health Check
+--  École Coranique El-Yajouri — Database Health Check
 --  Run each section in Supabase SQL Editor and check results.
 --  Anything returning "MISSING" or "BAD" needs the fix below.
 -- ============================================================

@@ -11,9 +11,9 @@ export async function GET(req: NextRequest) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const result = await resend.emails.send({
-    from:    process.env.EMAIL_FROM ?? "Nur Al-Quran <onboarding@resend.dev>",
+    from:    process.env.EMAIL_FROM ?? "École Coranique El-Yajouri <onboarding@resend.dev>",
     to,
-    subject: "Test from Nur Al-Quran",
+    subject: "Test from École Coranique El-Yajouri",
     html:    "<p>If you see this, Resend is working.</p>",
   });
 

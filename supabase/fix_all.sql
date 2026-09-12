@@ -1,5 +1,5 @@
 -- ============================================================
---  Nur Al-Quran — Fix All Known Issues
+--  École Coranique El-Yajouri — Fix All Known Issues
 --  Safe to run multiple times (idempotent).
 -- ============================================================
 

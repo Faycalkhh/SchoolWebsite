@@ -1,5 +1,5 @@
 -- ============================================================
---  Nur Al-Quran — Load test: 200 mock students with avatars
+--  École Coranique El-Yajouri — Load test: 200 mock students with avatars
 --  Run AFTER you have at least one parent profile in the DB.
 -- ============================================================
 

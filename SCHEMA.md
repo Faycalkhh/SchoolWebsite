@@ -1,4 +1,4 @@
-# Nur Al-Quran — Project Schema
+# École Coranique El-Yajouri — Project Schema
 
 > **Render diagrams:** VSCode → install *Markdown Preview Mermaid Support* → `Ctrl+Shift+V`  
 > GitHub / GitLab render automatically.

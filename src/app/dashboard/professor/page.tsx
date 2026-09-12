@@ -1069,7 +1069,7 @@ export default function ProfessorDashboard() {
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div><label className={LABEL}>{T.fieldName}</label><input className={INPUT} placeholder="Sheikh Omar" value={profForm.name} onChange={(e) => setProfForm({ ...profForm, name: e.target.value })} /></div>
-                  <div><label className={LABEL}>{T.fieldEmail}</label><input type="email" className={INPUT} dir="ltr" placeholder="omar@nur.com" value={profForm.email} onChange={(e) => setProfForm({ ...profForm, email: e.target.value })} /></div>
+                  <div><label className={LABEL}>{T.fieldEmail}</label><input type="email" className={INPUT} dir="ltr" placeholder="prof@email.com" value={profForm.email} onChange={(e) => setProfForm({ ...profForm, email: e.target.value })} /></div>
                   <div><label className={LABEL}>{T.fieldPassword}</label><input type="password" className={INPUT} placeholder="••••••••" value={profForm.password} onChange={(e) => setProfForm({ ...profForm, password: e.target.value })} /></div>
                   <div><label className={LABEL}>{T.fieldSpecialty}</label><input className={INPUT} placeholder={T.specialtyPh} value={profForm.specialty} onChange={(e) => setProfForm({ ...profForm, specialty: e.target.value })} /></div>
                   <div className="sm:col-span-2"><label className={LABEL}>{T.fieldBio}</label><textarea rows={3} className={INPUT} placeholder={T.bioPh} value={profForm.bio} onChange={(e) => setProfForm({ ...profForm, bio: e.target.value })} /></div>

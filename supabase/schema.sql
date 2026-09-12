@@ -1,5 +1,5 @@
 -- ============================================================
---  Nur Al-Quran — Supabase Schema
+--  École Coranique El-Yajouri — Supabase Schema
 --  Run this entire file in the Supabase SQL Editor
 -- ============================================================
 

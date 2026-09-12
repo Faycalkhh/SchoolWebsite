@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 const apiKey = process.env.RESEND_API_KEY;
-const FROM   = process.env.EMAIL_FROM ?? "Nur Al-Quran <onboarding@resend.dev>";
+const FROM   = process.env.EMAIL_FROM ?? "École Coranique El-Yajouri <onboarding@resend.dev>";
 const APP    = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 const resend = apiKey ? new Resend(apiKey) : null;
@@ -23,13 +23,13 @@ export async function sendWelcomeEmail(opts: {
   role: "professor" | "parent";
 }) {
   const loginUrl = `${APP}/login/${opts.role}`;
-  const subject  = "Vos identifiants — Nur Al-Quran";
+  const subject  = "Vos identifiants — École Coranique El-Yajouri";
 
   const html = `
 <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;background:#faf8f4;color:#1a1a1a;">
 
   <div style="text-align:center;padding:20px 0;border-bottom:2px solid #c9a84c;">
-    <h1 style="color:#2d6a4f;margin:0;font-size:24px;">Nur Al-Quran</h1>
+    <h1 style="color:#2d6a4f;margin:0;font-size:22px;">École Coranique El-Yajouri</h1>
   </div>
 
   <div style="padding:24px 0;">
@@ -63,7 +63,7 @@ export async function sendWelcomeEmail(opts: {
   </div>
 
   <div style="padding:14px 0;border-top:1px solid #e8dfc8;text-align:center;color:#bbb;font-size:11px;">
-    Nur Al-Quran · مدرسة نور القرآن
+    École Coranique El-Yajouri · مدرسة القرآن لمسجد عبد القادر الياجوري
   </div>
 
 </div>`;
@@ -79,7 +79,7 @@ export async function sendContactEmail(opts: {
   fromPhone?: string;
   message: string;
 }) {
-  const subject = `Nouveau message de ${opts.fromName} — Nur Al-Quran`;
+  const subject = `Nouveau message de ${opts.fromName} — École Coranique El-Yajouri`;
   const html = `
 <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;background:#faf8f4;color:#1a1a1a;">
   <div style="text-align:center;padding:20px 0;border-bottom:2px solid #c9a84c;">
@@ -97,7 +97,7 @@ export async function sendContactEmail(opts: {
   </div>
 
   <div style="padding:14px 0;border-top:1px solid #e8dfc8;text-align:center;color:#bbb;font-size:11px;">
-    Reçu via le formulaire de contact · Nur Al-Quran
+    Reçu via le formulaire de contact · École Coranique El-Yajouri
   </div>
 </div>`;
 
@@ -122,7 +122,7 @@ export async function sendSessionEmail(opts: {
   const html = `
 <div style="font-family:Cairo,Arial,sans-serif;max-width:560px;margin:auto;padding:32px;background:#faf8f4;color:#1a1a1a;">
   <div style="text-align:center;padding:24px 0;border-bottom:2px solid #c9a84c;">
-    <h1 style="color:#2d6a4f;margin:0;font-size:24px;">Nur Al-Quran</h1>
+    <h1 style="color:#2d6a4f;margin:0;font-size:22px;">École Coranique El-Yajouri</h1>
   </div>
 
   <div style="padding:24px 0;">
@@ -148,7 +148,7 @@ export async function sendSessionEmail(opts: {
   </div>
 
   <div style="padding:16px 0;border-top:1px solid #e8dfc8;text-align:center;color:#999;font-size:12px;">
-    Nur Al-Quran — مدرسة نور القرآن
+    École Coranique El-Yajouri — مدرسة القرآن لمسجد عبد القادر الياجوري
   </div>
 </div>`;
 

@@ -26,7 +26,7 @@ const fr: Translations = {
     label: "À propos",
     title: "Une excellence",
     highlight: "coranique",
-    desc: "L'école Nur Al-Quran a été fondée pour offrir un enseignement coranique d'excellence dans un cadre islamique chaleureux.",
+    desc: "L'école coranique de la mosquée Abdelkader El Yajouri a été fondée pour offrir un enseignement d'excellence dans un cadre islamique chaleureux.",
     values: [
       "Enseignement personnalisé du Tajweed",
       "Programmes de mémorisation complets",

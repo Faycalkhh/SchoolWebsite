@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "مدرسة القرآن لمسجد عبد القادر الياجوري  | École coranique de la mosquée Abdelkader El Yajouri",
-    short_name: "نور القرآن",
+    name: "مدرسة القرآن لمسجد عبد القادر الياجوري | École coranique de la mosquée Abdelkader El Yajouri",
+    short_name: "مدرسة الياجوري",
     description: "تعليم قرآني متميز — Enseignement coranique d'excellence.",
     start_url: "/",
     display: "standalone",

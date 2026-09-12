@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Landing page", () => {
   test("loads and shows the hero section", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle(/Nur Al-Quran|نور القرآن/);
+    await expect(page).toHaveTitle(/El Yajouri|الياجوري/);
     await expect(page.locator("section#home")).toBeVisible();
   });
 
