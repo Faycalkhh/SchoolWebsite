@@ -131,9 +131,23 @@ export async function sendSessionEmail(opts: {
   discipline: string;
   memorization: string;
   comment: string;
+  /** True when a professor corrected an already-notified session. */
+  updated?: boolean;
 }) {
-  const subject = `Nouvelle séance pour ${opts.childName}`;
+  const subject = opts.updated
+    ? `Séance mise à jour pour ${opts.childName}`
+    : `Nouvelle séance pour ${opts.childName}`;
   const loginUrl = `${APP}/login/parent`;
+
+  // The parent has already been emailed about this session, so say plainly that
+  // the details changed rather than looking like a duplicate notification.
+  const intro = opts.updated
+    ? `Les détails de la séance du <strong>${esc(opts.date)}</strong> pour
+       <strong style="color:#2d6a4f;">${esc(opts.childName)}</strong> ont été mis à jour
+       par <strong>${esc(opts.professorName)}</strong>. Voici les informations corrigées :`
+    : `Une nouvelle séance vient d'être enregistrée pour
+       <strong style="color:#2d6a4f;">${esc(opts.childName)}</strong>
+       par <strong>${esc(opts.professorName)}</strong>.`;
 
   const html = `
 <div style="font-family:Cairo,Arial,sans-serif;max-width:560px;margin:auto;padding:32px;background:#faf8f4;color:#1a1a1a;">
@@ -143,10 +157,7 @@ export async function sendSessionEmail(opts: {
 
   <div style="padding:24px 0;">
     <p style="color:#555;line-height:1.6;">Assalamu alaykum ${esc(opts.parentName)},</p>
-    <p style="color:#555;line-height:1.6;">
-      Une nouvelle séance vient d'être enregistrée pour <strong style="color:#2d6a4f;">${esc(opts.childName)}</strong>
-      par <strong>${esc(opts.professorName)}</strong>.
-    </p>
+    <p style="color:#555;line-height:1.6;">${intro}</p>
 
     <div style="background:white;border:1px solid #e8dfc8;border-radius:12px;padding:20px;margin:20px 0;">
       <table style="width:100%;border-collapse:collapse;font-size:14px;">

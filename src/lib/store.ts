@@ -209,6 +209,25 @@ export async function addSession(
   return mapSession(row);
 }
 
+/** Corrects an already-recorded session. The original professor_id is kept:
+ *  an edit is a correction to the record, not a change of who taught it. */
+export async function updateSession(
+  id: string,
+  data: Omit<Session, "id" | "professorId">
+): Promise<void> {
+  const { error } = await supabase
+    .from("sessions")
+    .update({
+      date:         data.date,
+      present:      data.present,
+      discipline:   data.discipline,
+      memorization: data.memorization,
+      comment:      data.comment,
+    })
+    .eq("id", id);
+  if (error) fail("updateSession", error.message);
+}
+
 // ── TOP ENTRIES ───────────────────────────────────────────────
 
 export async function getTopStudents(): Promise<TopEntry[]> {

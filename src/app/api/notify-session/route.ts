@@ -9,7 +9,7 @@ const adminSupabase = createClient(
 );
 
 export async function POST(req: NextRequest) {
-  const { studentId, professorId, date, present, discipline, memorization, comment } = await req.json();
+  const { studentId, professorId, date, present, discipline, memorization, comment, updated } = await req.json();
 
   const { data: student } = await adminSupabase
     .from("students")
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       discipline,
       memorization:  memorization ?? "",
       comment:       comment ?? "",
+      updated:       Boolean(updated),
     });
   } catch (e) {
     console.error("[notify-session] send failed:", e);

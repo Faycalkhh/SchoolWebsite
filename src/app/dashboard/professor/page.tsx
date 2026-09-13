@@ -14,7 +14,7 @@ import type { Lang } from "@/context/LanguageContext";
 import {
   getStudents, addStudent, updateStudent, deleteStudent,
   getProfiles, createUser, deleteProfile, updateProfile,
-  addSession,
+  addSession, updateSession,
   getTopStudents, saveTopStudents,
   getAnnouncements, addAnnouncement, deleteAnnouncement,
   resetPassword,
@@ -92,6 +92,9 @@ const t = {
     present: "حاضر",
     absent: "غائب",
     newSession: "حصة جديدة",
+    editSession: "تعديل الحصة",
+    editSessionHint: "سيتم إرسال بريد محدَّث إلى ولي الأمر عند الحفظ.",
+    toastSessionUpdated: "تم تعديل الحصة وإشعار ولي الأمر.",
     fieldDate: "التاريخ",
     fieldPresence: "الحضور",
     fieldDiscipline: "الانضباط",
@@ -228,6 +231,9 @@ const t = {
     present: "Présent",
     absent: "Absent",
     newSession: "Nouvelle séance",
+    editSession: "Modifier la séance",
+    editSessionHint: "Un e-mail actualisé sera envoyé au parent à l'enregistrement.",
+    toastSessionUpdated: "Séance modifiée. Le parent a été notifié.",
     fieldDate: "Date",
     fieldPresence: "Présence",
     fieldDiscipline: "Discipline",
@@ -372,7 +378,48 @@ function initials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
-const emptySession = () => ({ date: new Date().toISOString().split("T")[0], present: true, discipline: "bon" as Discipline, memorization: "", comment: "" });
+type SessionFormValue = {
+  date: string;
+  present: boolean;
+  discipline: Discipline;
+  memorization: string;
+  comment: string;
+};
+
+const emptySession = (): SessionFormValue => ({ date: new Date().toISOString().split("T")[0], present: true, discipline: "bon", memorization: "", comment: "" });
+
+/** The session fields, shared by the "new session" and "edit session" panels so
+ *  the two can't drift apart. */
+function SessionFields({ value, onChange, T }: {
+  value: SessionFormValue;
+  onChange: (v: SessionFormValue) => void;
+  T: typeof t.ar;
+}) {
+  return (
+    <div className="grid sm:grid-cols-2 gap-3">
+      <div><label className={LABEL}>{T.fieldDate}</label><input type="date" className={INPUT} value={value.date} onChange={(e) => onChange({ ...value, date: e.target.value })} /></div>
+      <div>
+        <label className={LABEL}>{T.fieldPresence}</label>
+        <div className="flex gap-2 mt-1">
+          <button type="button" onClick={() => onChange({ ...value, present: true })} className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors border ${value.present ? "bg-emerald-600 text-white border-emerald-600" : "bg-white border-[#e8dfc8] text-[#666] hover:bg-[#f5f0e8]"}`}>{T.present}</button>
+          <button type="button" onClick={() => onChange({ ...value, present: false })} className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors border ${!value.present ? "bg-red-500 text-white border-red-500" : "bg-white border-[#e8dfc8] text-[#666] hover:bg-[#f5f0e8]"}`}>{T.absent}</button>
+        </div>
+      </div>
+      {value.present && (
+        <>
+          <div>
+            <label className={LABEL}>{T.fieldDiscipline}</label>
+            <select className={INPUT} value={value.discipline} onChange={(e) => onChange({ ...value, discipline: e.target.value as Discipline })}>
+              {(["excellent", "bon", "passable", "insuffisant"] as Discipline[]).map((d) => <option key={d} value={d}>{T.disciplines[d]}</option>)}
+            </select>
+          </div>
+          <div><label className={LABEL}>{T.fieldMemo}</label><input className={INPUT} placeholder={T.memoPh} value={value.memorization} onChange={(e) => onChange({ ...value, memorization: e.target.value })} /></div>
+        </>
+      )}
+      <div className="sm:col-span-2"><label className={LABEL}>{T.fieldComment}</label><textarea rows={3} className={`${INPUT} resize-none`} placeholder={value.present ? T.commentPh : T.absenceReasonPh} value={value.comment} onChange={(e) => onChange({ ...value, comment: e.target.value })} /></div>
+    </div>
+  );
+}
 const emptyStudent = () => ({ name: "", dateOfBirth: "", level: "Débutant" as Level, parentEmail: "", parentName: "", photo: "" });
 
 // Generates a simple 8-char password with no ambiguous chars (no 0/O/1/l/I)
@@ -409,6 +456,8 @@ export default function ProfessorDashboard() {
   const [showAddProf, setShowAddProf] = useState(false);
   const [showAddAnn, setShowAddAnn] = useState(false);
   const [sessionForm, setSessionForm] = useState(emptySession());
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editSessionForm, setEditSessionForm] = useState<SessionFormValue>(emptySession());
   const [studentForm, setStudentForm] = useState(emptyStudent());
   const [profForm, setProfForm] = useState(emptyProf());
   const [annForm, setAnnForm] = useState(emptyAnn());
@@ -501,7 +550,33 @@ export default function ProfessorDashboard() {
     setExpandedId(opening ? id : null);
     setInnerTab("sessions");
     setShowNewSession(null);
+    setEditingSessionId(null);
     if (editingStudentId) setEditingStudentId(null);
+  }
+
+  /**
+   * Emails the parent about a session. The session row is already saved by the
+   * time this runs, so it is best-effort — but a failure is reported rather than
+   * swallowed, since a parent silently not hearing about a session is the whole
+   * point of the feature.
+   */
+  function notifyParent(studentId: string, professorId: string, form: SessionFormValue, updated: boolean) {
+    fetch("/api/notify-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentId,
+        professorId,
+        updated,
+        date:         form.date,
+        present:      form.present,
+        discipline:   form.discipline,
+        memorization: form.memorization,
+        comment:      form.comment,
+      }),
+    })
+      .then((res) => { if (!res.ok) flashError(T.warnEmailFailed); })
+      .catch(() => flashError(T.warnEmailFailed));
   }
 
   function handleAddSession(studentId: string) {
@@ -511,24 +586,38 @@ export default function ProfessorDashboard() {
         s.id !== studentId ? s : { ...s, sessions: [newSession, ...s.sessions] }
       ));
       setShowNewSession(null); setSessionForm(emptySession());
-      // The session is already saved, so the email is best-effort — but tell the
-      // professor when it didn't reach the parent instead of failing silently.
-      fetch("/api/notify-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentId,
-          professorId:  user!.id,
-          date:         sessionForm.date,
-          present:      sessionForm.present,
-          discipline:   sessionForm.discipline,
-          memorization: sessionForm.memorization,
-          comment:      sessionForm.comment,
-        }),
-      })
-        .then((res) => { if (!res.ok) flashError(T.warnEmailFailed); })
-        .catch(() => flashError(T.warnEmailFailed));
+      notifyParent(studentId, user!.id, sessionForm, false);
       flash(T.toastSession);
+    });
+  }
+
+  function startEditSession(session: Session) {
+    setEditingSessionId(session.id);
+    setShowNewSession(null);
+    setEditSessionForm({
+      date:         session.date,
+      present:      session.present,
+      discipline:   session.discipline,
+      memorization: session.memorization,
+      comment:      session.comment,
+    });
+  }
+
+  function handleUpdateSession(studentId: string, session: Session) {
+    const form = editSessionForm;
+    return run(async () => {
+      await updateSession(session.id, form);
+      setStudents((prev) => prev.map((s) =>
+        s.id !== studentId ? s : {
+          ...s,
+          sessions: s.sessions.map((ses) => (ses.id !== session.id ? ses : { ...ses, ...form })),
+        }
+      ));
+      setEditingSessionId(null);
+      // Re-notify with the corrected details, attributed to the professor who
+      // originally taught the session rather than whoever made the correction.
+      notifyParent(studentId, session.professorId, form, true);
+      flash(T.toastSessionUpdated);
     });
   }
 
@@ -944,7 +1033,7 @@ export default function ProfessorDashboard() {
                                   <>
                                     <div className="flex gap-2 mb-4">
                                       {(["sessions", "memo"] as const).map((it) => (
-                                        <button key={it} onClick={() => { setInnerTab(it); if (it === "memo") setMemoEdit(student.memorization ?? {}); }}
+                                        <button key={it} onClick={() => { setInnerTab(it); setEditingSessionId(null); if (it === "memo") setMemoEdit(student.memorization ?? {}); }}
                                           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${innerTab === it ? "bg-[#2d6a4f] text-white" : "bg-[#f5f0e8] text-[#666] hover:bg-[#e8dfc8]"}`}>
                                           {it === "sessions" ? T.innerTabSessions : T.innerTabMemo}
                                         </button>
@@ -966,11 +1055,12 @@ export default function ProfessorDashboard() {
                                                   ))}
                                                   <th className="text-start px-4 py-2.5 font-medium hidden sm:table-cell">{T.colMemo}</th>
                                                   <th className="text-start px-4 py-2.5 font-medium hidden lg:table-cell">{T.colComment}</th>
+                                                  <th className="px-4 py-2.5"><span className="sr-only">{T.editLabel}</span></th>
                                                 </tr>
                                               </thead>
                                               <tbody className="divide-y divide-[#f5f0e8]">
                                                 {sorted.map((s) => (
-                                                  <tr key={s.id} className="hover:bg-[#faf8f4]">
+                                                  <tr key={s.id} className={`hover:bg-[#faf8f4] ${editingSessionId === s.id ? "bg-[#2d6a4f]/5" : ""}`}>
                                                     <td className="px-4 py-3 text-[#555]">{s.date}</td>
                                                     <td className="px-4 py-3">
                                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${s.present ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-red-700 bg-red-50 border-red-200"}`}>
@@ -980,47 +1070,52 @@ export default function ProfessorDashboard() {
                                                     <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${DISC_CLS[s.discipline]}`}>{T.disciplines[s.discipline]}</span></td>
                                                     <td className="px-4 py-3 text-[#666] hidden sm:table-cell">{s.memorization || "—"}</td>
                                                     <td className="px-4 py-3 text-[#666] hidden lg:table-cell max-w-xs truncate">{s.comment || "—"}</td>
+                                                    <td className="px-4 py-3 text-end">
+                                                      <button
+                                                        onClick={() => (editingSessionId === s.id ? setEditingSessionId(null) : startEditSession(s))}
+                                                        className={`p-1.5 rounded-lg transition-colors ${editingSessionId === s.id ? "bg-[#2d6a4f]/10 text-[#2d6a4f]" : "text-[#bbb] hover:text-[#2d6a4f] hover:bg-[#2d6a4f]/10"}`}
+                                                        title={T.editSession}
+                                                      >
+                                                        <Pencil size={12} />
+                                                      </button>
+                                                    </td>
                                                   </tr>
                                                 ))}
                                               </tbody>
                                             </table>
                                           </div>
                                         )}
-                                        {showNewSession === student.id ? (
-                                          <div className="bg-[#faf8f4] rounded-xl border border-[#e8dfc8] p-4">
-                                            <h4 className="text-sm font-semibold text-[#1a1a1a] mb-4">{T.newSession}</h4>
-                                            <div className="grid sm:grid-cols-2 gap-3">
-                                              <div><label className={LABEL}>{T.fieldDate}</label><input type="date" className={INPUT} value={sessionForm.date} onChange={(e) => setSessionForm({ ...sessionForm, date: e.target.value })} /></div>
-                                              <div>
-                                                <label className={LABEL}>{T.fieldPresence}</label>
-                                                <div className="flex gap-2 mt-1">
-                                                  <button type="button" onClick={() => setSessionForm({ ...sessionForm, present: true })} className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors border ${sessionForm.present ? "bg-emerald-600 text-white border-emerald-600" : "bg-white border-[#e8dfc8] text-[#666] hover:bg-[#f5f0e8]"}`}>{T.present}</button>
-                                                  <button type="button" onClick={() => setSessionForm({ ...sessionForm, present: false })} className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors border ${!sessionForm.present ? "bg-red-500 text-white border-red-500" : "bg-white border-[#e8dfc8] text-[#666] hover:bg-[#f5f0e8]"}`}>{T.absent}</button>
-                                                </div>
+                                        {(() => {
+                                          const editing = sorted.find((s) => s.id === editingSessionId);
+                                          if (editing) return (
+                                            <div className="bg-[#faf8f4] rounded-xl border border-[#2d6a4f]/30 p-4">
+                                              <div className="mb-4">
+                                                <h4 className="text-sm font-semibold text-[#1a1a1a]">{T.editSession}</h4>
+                                                <p className="text-[10px] text-[#c9a84c] mt-0.5">{T.editSessionHint}</p>
                                               </div>
-                                              {sessionForm.present && (
-                                                <>
-                                                  <div>
-                                                    <label className={LABEL}>{T.fieldDiscipline}</label>
-                                                    <select className={INPUT} value={sessionForm.discipline} onChange={(e) => setSessionForm({ ...sessionForm, discipline: e.target.value as Discipline })}>
-                                                      {(["excellent", "bon", "passable", "insuffisant"] as Discipline[]).map((d) => <option key={d} value={d}>{T.disciplines[d]}</option>)}
-                                                    </select>
-                                                  </div>
-                                                  <div><label className={LABEL}>{T.fieldMemo}</label><input className={INPUT} placeholder={T.memoPh} value={sessionForm.memorization} onChange={(e) => setSessionForm({ ...sessionForm, memorization: e.target.value })} /></div>
-                                                </>
-                                              )}
-                                              <div className="sm:col-span-2"><label className={LABEL}>{T.fieldComment}</label><textarea rows={3} className={`${INPUT} resize-none`} placeholder={sessionForm.present ? T.commentPh : T.absenceReasonPh} value={sessionForm.comment} onChange={(e) => setSessionForm({ ...sessionForm, comment: e.target.value })} /></div>
+                                              <SessionFields value={editSessionForm} onChange={setEditSessionForm} T={T} />
+                                              <div className="flex gap-2 mt-4">
+                                                <button onClick={() => handleUpdateSession(student.id, editing)} disabled={submitting} className="px-4 py-2 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.save}</button>
+                                                <button onClick={() => setEditingSessionId(null)} className="px-4 py-2 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-white transition-colors">{T.cancel}</button>
+                                              </div>
                                             </div>
-                                            <div className="flex gap-2 mt-4">
-                                              <button onClick={() => handleAddSession(student.id)} disabled={submitting} className="px-4 py-2 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.saveSession}</button>
-                                              <button onClick={() => setShowNewSession(null)} className="px-4 py-2 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-white transition-colors">{T.cancel}</button>
+                                          );
+                                          if (showNewSession === student.id) return (
+                                            <div className="bg-[#faf8f4] rounded-xl border border-[#e8dfc8] p-4">
+                                              <h4 className="text-sm font-semibold text-[#1a1a1a] mb-4">{T.newSession}</h4>
+                                              <SessionFields value={sessionForm} onChange={setSessionForm} T={T} />
+                                              <div className="flex gap-2 mt-4">
+                                                <button onClick={() => handleAddSession(student.id)} disabled={submitting} className="px-4 py-2 rounded-lg bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#235a40] disabled:opacity-60 disabled:cursor-wait transition-colors">{submitting ? T.saving : T.saveSession}</button>
+                                                <button onClick={() => setShowNewSession(null)} className="px-4 py-2 rounded-lg border border-[#e8dfc8] text-[#666] text-xs hover:bg-white transition-colors">{T.cancel}</button>
+                                              </div>
                                             </div>
-                                          </div>
-                                        ) : (
-                                          <button onClick={() => { setShowNewSession(student.id); setSessionForm(emptySession()); }} className="flex items-center gap-1.5 text-sm font-semibold text-[#2d6a4f] hover:underline">
-                                            <Plus size={14} />{T.addSession}
-                                          </button>
-                                        )}
+                                          );
+                                          return (
+                                            <button onClick={() => { setShowNewSession(student.id); setSessionForm(emptySession()); }} className="flex items-center gap-1.5 text-sm font-semibold text-[#2d6a4f] hover:underline">
+                                              <Plus size={14} />{T.addSession}
+                                            </button>
+                                          );
+                                        })()}
                                       </div>
                                     ) : (
                                       <div className="space-y-4">
