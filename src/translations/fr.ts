@@ -90,6 +90,8 @@ const fr: Translations = {
     submit: "Envoyer le message",
     sentTitle: "Message envoyé !",
     sentDesc: "Nous vous répondrons dans les 24h, incha'Allah.",
+    errorTitle: "Échec de l'envoi",
+    errorDesc: "Le message n'a pas pu être envoyé. Veuillez réessayer ou nous contacter par téléphone.",
     map: "Carte interactive bientôt disponible",
   },
   footer: {

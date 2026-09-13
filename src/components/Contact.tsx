@@ -2,29 +2,34 @@
 
 import { useState } from "react";
 import AnimateIn from "./AnimateIn";
-import { MapPin, Phone, Mail, Clock, Send } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Send, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function Contact() {
   const { T, dir } = useLanguage();
   const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
-  const [sent, setSent] = useState(false);
+  const [status, setStatus] = useState<"idle" | "sent" | "error">("idle");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await fetch("/api/contact", {
+      const res = await fetch("/api/contact", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify(form),
       });
+      // Only claim success when the message really went out, so nobody is left
+      // waiting on a reply that was never going to come.
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setStatus("sent");
     } catch (err) {
       console.error("[contact] send failed:", err);
+      setStatus("error");
+    } finally {
+      setSubmitting(false);
     }
-    setSent(true);
-    setSubmitting(false);
   }
 
   const contactInfo = [
@@ -87,7 +92,7 @@ export default function Contact() {
           </AnimateIn>
 
           <AnimateIn direction="right" delay={0.1}>
-            {sent ? (
+            {status === "sent" ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center py-12 px-8">
                   <div className="w-14 h-14 rounded-full bg-[#2d6a4f]/10 flex items-center justify-center mx-auto mb-4">
@@ -99,6 +104,15 @@ export default function Contact() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {status === "error" && (
+                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3" role="alert">
+                    <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={17} />
+                    <div>
+                      <div className="text-sm font-semibold text-red-700">{T.contact.errorTitle}</div>
+                      <p className="text-xs text-red-600/90 leading-relaxed mt-0.5">{T.contact.errorDesc}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-[#555] uppercase tracking-wider mb-1.5">

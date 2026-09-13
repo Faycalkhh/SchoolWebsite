@@ -54,6 +54,7 @@ const t = {
     errEmail: "هذا البريد الإلكتروني مستخدم بالفعل.",
     errOperation: "تعذّر إتمام العملية. تحقق من اتصالك ثم حاول مرة أخرى.",
     errLoad: "تعذّر تحميل البيانات. حدّث الصفحة وحاول مجدداً.",
+    warnEmailFailed: "تم تسجيل الحصة، لكن تعذّر إرسال البريد إلى ولي الأمر.",
     confirmDelete: "هل أنت متأكد من الحذف؟",
     confirmYes: "نعم، احذف",
     searchPh: "البحث عن طالب...",
@@ -189,6 +190,7 @@ const t = {
     errEmail: "Cet email est déjà utilisé.",
     errOperation: "L'opération a échoué. Vérifiez votre connexion et réessayez.",
     errLoad: "Échec du chargement des données. Actualisez la page et réessayez.",
+    warnEmailFailed: "Séance enregistrée, mais l'e-mail au parent n'a pas pu être envoyé.",
     confirmDelete: "Confirmer la suppression ?",
     confirmYes: "Oui, supprimer",
     searchPh: "Rechercher un élève...",
@@ -509,7 +511,8 @@ export default function ProfessorDashboard() {
         s.id !== studentId ? s : { ...s, sessions: [newSession, ...s.sessions] }
       ));
       setShowNewSession(null); setSessionForm(emptySession());
-      // Fire-and-forget email to parent
+      // The session is already saved, so the email is best-effort — but tell the
+      // professor when it didn't reach the parent instead of failing silently.
       fetch("/api/notify-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -522,7 +525,9 @@ export default function ProfessorDashboard() {
           memorization: sessionForm.memorization,
           comment:      sessionForm.comment,
         }),
-      }).catch(() => {});
+      })
+        .then((res) => { if (!res.ok) flashError(T.warnEmailFailed); })
+        .catch(() => flashError(T.warnEmailFailed));
       flash(T.toastSession);
     });
   }

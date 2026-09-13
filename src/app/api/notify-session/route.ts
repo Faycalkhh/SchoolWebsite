@@ -26,17 +26,22 @@ export async function POST(req: NextRequest) {
 
   if (!parent?.email) return NextResponse.json({ ok: false, reason: "parent email missing" });
 
-  await sendSessionEmail({
-    to:            parent.email,
-    parentName:    parent.name ?? "",
-    childName:     student.name,
-    professorName: professor?.name ?? "—",
-    date,
-    present,
-    discipline,
-    memorization:  memorization ?? "",
-    comment:       comment ?? "",
-  });
+  try {
+    await sendSessionEmail({
+      to:            parent.email,
+      parentName:    parent.name ?? "",
+      childName:     student.name,
+      professorName: professor?.name ?? "—",
+      date,
+      present,
+      discipline,
+      memorization:  memorization ?? "",
+      comment:       comment ?? "",
+    });
+  } catch (e) {
+    console.error("[notify-session] send failed:", e);
+    return NextResponse.json({ ok: false, reason: "email send failed" }, { status: 502 });
+  }
 
   return NextResponse.json({ ok: true });
 }

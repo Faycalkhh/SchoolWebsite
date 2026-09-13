@@ -9,13 +9,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
-  await sendContactEmail({
-    to:        SCHOOL_INBOX,
-    fromName:  String(name),
-    fromEmail: String(email),
-    fromPhone: phone ? String(phone) : undefined,
-    message:   String(message),
-  });
+  try {
+    await sendContactEmail({
+      to:        SCHOOL_INBOX,
+      fromName:  String(name),
+      fromEmail: String(email),
+      fromPhone: phone ? String(phone) : undefined,
+      message:   String(message),
+    });
+  } catch (e) {
+    // Never claim the message was delivered when it wasn't — the visitor would
+    // sit waiting for a reply that can't come.
+    console.error("[contact] send failed:", e);
+    return NextResponse.json({ error: "Message could not be sent" }, { status: 502 });
+  }
 
   return NextResponse.json({ ok: true });
 }

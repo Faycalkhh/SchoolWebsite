@@ -51,8 +51,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: profileError.message }, { status: 400 });
   }
 
-  // Fire and forget — don't block the response if email fails
-  sendWelcomeEmail({ to: email, name, password, role }).catch(() => {});
+  // Fire and forget — account creation must not fail because email did — but
+  // log the reason, otherwise a broken mail setup is completely invisible.
+  sendWelcomeEmail({ to: email, name, password, role })
+    .catch((e) => console.error("[create-user] welcome email failed for", email, "-", e));
 
   return NextResponse.json({ user: profile });
 }
